@@ -1,21 +1,21 @@
-macros.CreateCommand(   "KeyCam_AddKeyframe",        "script AddFrame()")
-macros.CreateCommand(   "KeyCam_DeleteLastKey",      "script DeleteLastFrame()")
-macros.CreateCommand(   "KeyCam_ClearFrames",        "script ClearFrames()")
+macros.CreateAlias(   "KeyCam_AddKeyframe",        "script AddFrame()")
+macros.CreateAlias(   "KeyCam_DeleteLastKey",      "script DeleteLastFrame()")
+macros.CreateAlias(   "KeyCam_ClearFrames",        "script ClearFrames()")
 
-macros.CreateCommand(   "KeyCam_PlayCurrentProfile", "script PlayCurrentProfile()")
-macros.CreateCommand(   "KeyCam_PlayAllProfiles",    "script PlayAllProfiles()")
-macros.CreateCommand(   "KeyCam_StopPlayback",       "script StopPlayback()")
+macros.CreateAlias(   "KeyCam_PlayCurrentProfile", "script PlayCurrentProfile()")
+macros.CreateAlias(   "KeyCam_PlayAllProfiles",    "script PlayAllProfiles()")
+macros.CreateAlias(   "KeyCam_StopPlayback",       "script StopPlayback()")
 
-macros.CreateCommand(   "KeyCam_CreatePreset",       "script CreateProfile()")
-macros.CreateCommand(   "KeyCam_SwitchProfile",      "script SwitchProfile()")
-macros.CreateCommand(   "KeyCam_ClearProfiles",      "script ClearProfiles()")
+macros.CreateAlias(   "KeyCam_CreatePreset",       "script CreateProfile()")
+macros.CreateAlias(   "KeyCam_SwitchProfile",      "script SwitchProfile()")
+macros.CreateAlias(   "KeyCam_ClearProfiles",      "script ClearProfiles()")
 
-macros.CreateCommand(   "KeyCam_EditFrame",          "script TryChangeFrame()")
+macros.CreateAlias(   "KeyCam_EditFrame",          "script TryChangeFrame()")
 
-macros.CreateCommand(   "KeyCam_HideHud",            "crosshair 0; net_graph 0; developer 0; r_drawviewmodel 0")
-macros.CreateCommand(   "KeyCam_ShowHud",            "crosshair 1; net_graph 1; developer 1; r_drawviewmodel 1")
-macros.CreateCommand(   "help_KeyCam",               "script Help()")
-macros.CreateCommand(   "KeyCam_Meow",               "echo Meow, meow ^-^")
+macros.CreateAlias(   "KeyCam_HideHud",            "crosshair 0; net_graph 0; developer 0; r_drawviewmodel 0")
+macros.CreateAlias(   "KeyCam_ShowHud",            "crosshair 1; net_graph 1; developer 1; r_drawviewmodel 1")
+macros.CreateAlias(   "help_KeyCam",               "script Help()")
+macros.CreateAlias(   "KeyCam_Meow",               "echo Meow, meow ^-^")
 
 
 ::binds <- []

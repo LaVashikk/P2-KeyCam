@@ -12,7 +12,6 @@ IncludeScript("P2-KeyCam/ui/screeninfo")
 if("profiles" in getroottable()) {
     return dev.error("KeyCam is currently active and does'n require reinitialization!")
 }
-
 /******************************************************************************
 *                                     INIT
 ******************************************************************************/
@@ -118,7 +117,7 @@ function SetLerp(lerpFunc) {
 function GetLerp() {
     local lerpName = "linear"
     if(currentProfile.lerpFunc) {
-        foreach(name, func in math.lerp) 
+        foreach(name, func in math.ease) 
             if(func == currentProfile.lerpFunc) {
                 lerpName = name
                 break
@@ -138,6 +137,7 @@ function PlayCurrentProfile() {
     
     local animTime = _playProfile(currentProfile)
     ScheduleEvent.Add("cam", StopPlayback, animTime)
+    return animTime
 }
 
 // Play the special profile's keyframes in sequence
@@ -147,6 +147,7 @@ function PlayProfile(idx) {
     
     local animTime = _playProfile(profiles[idx])
     ScheduleEvent.Add("cam", StopPlayback, animTime)
+    return animTime
 }
 
 // Play all profiles consecutively
@@ -160,6 +161,7 @@ function PlayAllProfiles() {
     }
 
     ScheduleEvent.Add("cam", StopPlayback, delay)
+    return delay
 }
 
 // Stop playback and restore HUD elements
@@ -189,7 +191,7 @@ function _playProfile(profile, globalDelay = 0) {
     for(local idx = 0; idx < len; idx++) {
         local k1 = profile.GetFrame(idx)
         local k2 = profile.GetFrame(idx + 1)
-        local settings = {globalDelay = globalDelay, eventName = "cam", lerp = profile.lerpFunc}
+        local settings = {globalDelay = globalDelay, eventName = "cam", lerp = profile.lerpFunc, ease = profile.lerpFunc}
 
         local animTime = animate.RT.PositionTransitionBySpeed(camera, k1.GetOrigin(), k2.GetOrigin(), profile.cameraSpeed, settings)
         animate.RT.AnglesTransitionByTime(camera, k1.GetAngles(), k2.GetAngles(), animTime, settings)

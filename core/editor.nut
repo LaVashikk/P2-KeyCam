@@ -22,7 +22,7 @@ function TryChangeFrame() {
     EntFireByHandle(camera, "Enable")
 
     camera.SetOrigin(mutableFrame.GetOrigin())
-    camera.SetAbsAngles(mutableFrame.GetAngles())
+    camera.SetAngles2(mutableFrame.GetAngles())
     toDown = false; inverted = false
 
     ScheduleEvent.AddInterval("FrameChanger", FrameEditor, FrameTime(), 0, [mutableFrame])
@@ -89,7 +89,7 @@ function FrameEditor(frame) {
     local newAngles = frame.GetAngles() + anglesOffset
     
     camera.SetOrigin(newPos)
-    camera.SetAbsAngles(newAngles)
+    camera.SetAngles2(newAngles)
     
     frame.SetOrigin(newPos)
     frame.SetAngles(newAngles)

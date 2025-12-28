@@ -6,10 +6,11 @@
  +---------------------------------------------------------------------------------+
 | pcapture-lib.nut                                                                  |
 |       The main file in the library. initializes required parts of the library     |
-|    GitHud repo: https://github.com/IaVashik/PCapture-LIB                          |
+|    GitHud repo: https://github.com/LaVashikk/PCapture-LIB                          |
 +----------------------------------------------------------------------------------+ */
 
-local version = "PCapture-Lib 3.3 Stable"
+local version = "PCapture-Lib 4.0 Release Candidate"
+local rootScope = getroottable()
 
 // `Self` must be in any case, even if the script is run directly by the interpreter
 if (!("self" in this)) {
@@ -18,1142 +19,28 @@ if (!("self" in this)) {
     getroottable()["self"] <- self
 }
 
-if("_lib_version_" in getroottable() && version.find("Debug") == null) {
+if("LIB_VERSION" in getroottable() && version.find("Debug") == null) {
     printl("\n")
     dev.warning("PCapture-Lib already initialized.")
-    if(_lib_version_ != version) {
-        dev.error("Attempting to initialize different versions of the PCapture-Lib library!")
-        dev.fprint("Version \"{}\" != \"{}\"", _lib_version_, version)
+    if(LIB_VERSION != version) {
+        printl("\n======================== WARNING ========================")
+        printl("Attempting to initialize different versions of the PCapture-Lib library!")
+        macros.fprint("Inited version \"{}\" != \"{}\"", LIB_VERSION, version)
+        printl("==========================================================\n")
     }
     return
 }
 
-/*+--------------------------------------------------------------------------------+
-|                           PCapture Vscripts Library                              |
-+----------------------------------------------------------------------------------+
-| Author:                                                                          |
-|     Visionary Mathematician - laVashik :O                                        |
-+----------------------------------------------------------------------------------+
-|    The core mathematical module, providing essential functions and objects for   |
-|    performing calculations, transformations, and interpolations in VScripts.     |
-+----------------------------------------------------------------------------------+ */
-
-::math <- {}
-
 /*
- * Finds the minimum value among the given arguments.
+ * Global Tables Initialization:
  *
- * @param {...number} vargv - The numbers to compare.
- * @returns {number} - The minimum value.
+ * This section initializes the fundamental global tables required for the PCapture Library.
+ * These tables are essential for ensuring the correct functioning 
+ * of the library's various components during runtime.
 */
-math["min"] <- function(...) {
-    local min = vargv[0]
-    for(local i = 0; i< vargc; i++) {
-        if(min > vargv[i])
-            min = vargv[i]
-    }
-    
-    return min
-}
-
-
-/*
- * Finds the maximum value among the given arguments.
- *
- * @param {...number} vargv - The numbers to compare.
- * @returns {number} - The maximum value.
-*/
-math["max"] <- function(...) {
-    local max = vargv[0]
-    for(local i = 0; i< vargc; i++) {
-        if(vargv[i] > max)
-            max = vargv[i]
-    }
-
-    return max
-}
-
-
-/*
- * Clamps a number within the specified range.
- *
- * @param {number} number - The number to clamp.
- * @param {number} min - The minimum value.
- * @param {number} max - The maximum value (optional).
- * @returns {number} - The clamped value.
-*/
-math["clamp"] <- function(number, min, max = 99999) { 
-    if ( number < min ) return min;
-    if ( number > max ) return max;
-    return number
-}
-
-
-/*
- * Rounds a number to the specified precision.
- *
- * @param {number} value - The number to round.
- * @param {int} precision - The precision (e.g., 1000 for rounding to three decimal places).
- * @returns {number} - The rounded value.
-*/
-math["round"] <- function(value, precision = 1) {
-    return floor(value * precision + 0.5) / precision
-}
-
-
-/*
- * Returns the sign of a number.
- *
- * @param {number} x - The number.
- * @returns {number} - The sign of the number (-1, 0, or 1).
-*/
-math["Sign"] <- function(x) {
-    if (x > 0) {
-        return 1;
-    } else if (x < 0) {
-        return -1;
-    } else {
-        return 0;
-    }
-}
-
-
-/*
- * Copies the sign of one value to another.
- *
- * @param {number} value - The value to copy the sign to.
- * @param {number} sign - The sign to copy.
- * @returns {number} - The value with the copied sign.
-*/
-math["copysign"] <- function(value, sign) {
-    if (sign < 0 || value < 0) {
-        return -value;
-    }
-    return value
-}
-
-
-/*
- * Remaps a value from the range [A, B] to the range [C, D].
- *
- * If A is equal to B, the value will be clamped to C or D depending on its relationship to B.
- *
- * @param {number} value - The value to remap.
- * @param {number} A - The start of the input range.
- * @param {number} B - The end of the input range.
- * @param {number} C - The start of the output range.
- * @param {number} D - The end of the output range.
- * @returns {number} - The remapped value.
-*/
-math["RemapVal"] <- function( value, A, B, C, D )
-{
-    if ( A == B )
-    {
-        if ( value >= B )
-            return D;
-        return C;
-    };
-    return C + (D - C) * (value - A) / (B - A);
-}   
-math["vector"] <- {}
-local mVector = math["vector"]
-
-/*
- * Checks if two vectors are equal based on their rounded components.
- *
- * @param {Vector} vector - The first vector.
- * @param {Vector} other - The second vector.
- * @returns {boolean} - True if the vectors are exactly equal, false otherwise.
-*/
-mVector["isEqually"] <- function(vector, other) {
-    return ::abs(vector.x - other.x) == 0 && 
-           ::abs(vector.y - other.y) == 0 && 
-           ::abs(vector.z - other.z) == 0
-}
-
-
-/*
- * Checks if two vectors are approximately equal, within a certain precision.
- * This function rounds the components of both vectors before comparing them.
- *
- * @param {Vector} vector - The first vector.
- * @param {Vector} other - The second vector.
- * @param {int} precision - The precision factor (e.g., 1000 for rounding to three decimal places).
- * @returns {boolean} - True if the vectors are approximately equal, false otherwise.
-*/
-mVector["isEqually2"] <- function(vector, other, precision = 1000) {
-    vector = round(vector, precision)
-    other = round(other, precision)
-    return vector.x == other.x && 
-            vector.y == other.y && 
-            vector.z == other.z
-}
-
-
-/*
- * Compares two vectors based on their lengths.
- *
- * @param {Vector} vector - The first vector.
- * @param {Vector} other - The second vector.
- * @returns {int} - 1 if the first vector is longer, -1 if the second vector is longer, and 0 if they have equal lengths.
-*/mVector["cmp"] <- function(vector, other) {
-    local l1 = vector.Length()
-    local l2 = other.Length()
-    if(l1 > l2) return 1
-    if(l1 < l2) return -1
-    return 0
-}
-
-
-/*
- * Performs element-wise multiplication of two vectors.
- *
- * @param {Vector} vector - The first vector.
- * @param {Vector} other - The second vector.
- * @returns {Vector} - A new vector with the result of the element-wise multiplication.
-*/
-mVector["mul"] <- function(vector, other) {
-    return Vector(vector.x * other.x, vector.y * other.y, vector.z * other.z)
-}
-
-/*
- * Rotates a vector by a given angle.
- *
- * @param {Vector} vector - The vector to rotate.
- * @param {Vector} angle - The Euler angles in degrees (pitch, yaw, roll) representing the rotation.
- * @returns {Vector} - The rotated vector. 
-*/
-mVector["rotate"] <- function(vector, angle) {
-    return math.Quaternion.fromEuler(angle).rotateVector(vector)
-}
-
-/*
- * Un-rotates a vector by a given angle.
- *
- * @param {Vector} vector - The vector to un-rotate.
- * @param {Vector} angle - The Euler angles in degrees (pitch, yaw, roll) representing the rotation to reverse.
- * @returns {Vector} - The un-rotated vector.
-*/
-mVector["unrotate"] <- function(vector, angle) {
-    return math.Quaternion.fromEuler(angle).unrotateVector(vector)
-}
-
-/*
- * Generates a random vector within the specified range.
- *
- * If `min` and `max` are both vectors, each component of the resulting vector will be a random value between the corresponding components of `min` and `max`.
- * If `min` and `max` are numbers, all components of the resulting vector will be random values between `min` and `max`.
- *
- * @param {Vector|number} min - The minimum values for each component or a single minimum value for all components.
- * @param {Vector|number} max - The maximum values for each component or a single maximum value for all components.
- * @returns {Vector} - The generated random vector.
-*/
-mVector["random"] <- function(min, max) {
-    if(typeof min == "Vector" && typeof max == "Vector") 
-        return Vector(RandomFloat(min.x, max.x), RandomFloat(min.y, max.y), RandomFloat(min.z, max.z))
-    return Vector(RandomFloat(min, max), RandomFloat(min, max), RandomFloat(min, max))
-}
-
-/*
- * Reflects a direction vector off a surface with a given normal.
- *
- * @param {Vector} dir - The direction vector to reflect.
- * @param {Vector} normal - The normal vector of the surface.
- * @returns {Vector} - The reflected direction vector.
-*/
-mVector["reflect"] <- function(dir, normal) {
-    return dir - normal * (dir.Dot(normal) * 2)
-}
-
-/*
- * Clamps the components of a vector within the specified range.
- *
- * @param {Vector} vector - The vector to clamp.
- * @param {number} min - The minimum value for each component.
- * @param {number} max - The maximum value for each component.
- * @returns {Vector} - The clamped vector.
-*/
-mVector["clamp"] <- function(vector, min = 0, max = 255) {
-    return Vector(math.clamp(vector.x, min, max), math.clamp(vector.y, min, max), math.clamp(vector.z, min, max)) 
-}
-
-/*
- * Resizes a vector to a new length while maintaining its direction.
- *
- * @param {Vector} vector - The vector to resize.
- * @param {number} newLength - The desired new length of the vector.
- * @returns {Vector} - The resized vector with the specified length.
-*/
-mVector["resize"] <- function(vector, newLength) {
-    local currentLength = vector.Length()
-    return vector * (newLength / currentLength)
-}
-
-/*
- * Rounds the elements of a vector to the specified precision.
- *
- * @param {Vector} vec - The vector to round.
- * @param {int} precision - The precision (e.g., 1000 for rounding to three decimal places).
- * @returns {Vector} - The rounded vector.
-*/
-mVector["round"] <- function(vec, precision = 1000) {
-    vec.x = floor(vec.x * precision + 0.5) / precision
-    vec.y = floor(vec.y * precision + 0.5) / precision
-    vec.z = floor(vec.z * precision + 0.5) / precision
-    return vec
-}
-
-/* 
- * Returns a vector with the signs (-1, 0, or 1) of each component of the input vector.
- * 
- * @param {Vector} vec - The input vector.
- * @returns {Vector} - A new vector with the signs of the input vector's components.
-*/
-mVector["sign"] <- function(vec) {
-    return Vector(math.Sign(vec.x), math.Sign(vec.y), math.Sign(vec.z))
-}
-
-/* 
- * Calculates the absolute value of each component in a vector.
- *
- * @param {Vector} vector - The vector to calculate the absolute values for.
- * @returns {Vector} - A new vector with the absolute values of the original vector's components.
-*/
-mVector["abs"] <- function(vector) {
-    return Vector(::abs(vector.x), ::abs(vector.y), ::abs(vector.z)) 
-}
-
-math["lerp"] <- {}
-local lerp = math["lerp"]
-
-
-/*
- * Performs linear interpolation (lerp) between start and end based on the parameter t.
- *
- * @param {number} start - The starting value.
- * @param {number} end - The ending value.
- * @param {number} t - The interpolation parameter.
- * @returns {number} - The interpolated value.
-*/
-lerp["number"] <- function(start, end, t) {
-    return start * (1 - t) + end * t;
-}
-
-
-/*
- * Performs linear interpolation (lerp) between two vectors.
- *
- * @param {Vector} start - The starting vector.
- * @param {Vector} end - The ending vector.
- * @param {number} t - The interpolation parameter.
- * @returns {Vector} - The interpolated vector.
-*/
-lerp["vector"] <- function(start, end, t) {
-    return Vector(this.number(start.x, end.x, t), this.number(start.y, end.y, t), this.number(start.z, end.z, t));
-}
-
-
-/*
- * Performs linear interpolation (lerp) between two colors.
- *
- * @param {Vector|string} start - The starting color vector or string representation (e.g., "255 0 0").
- * @param {Vector|string} end - The ending color vector or string representation.
- * @param {number} t - The interpolation parameter.
- * @returns {string} - The interpolated color string representation (e.g., "128 64 0").
-*/
-lerp["color"] <- function(start, end, t) {
-    if (type(start) == "string") {
-        start = macros.StrToVec(start)
-    }
-    if (type(end) == "string") {
-        end = macros.StrToVec(end)
-    }
-
-    return floor(this.number(start.x, end.x, t)) + " " + floor(this.number(start.y, end.y, t)) + " " + floor(this.number(start.z, end.z, t))
-}
-
-// SLERP for vector 
-lerp["sVector"] <- function(start, end, t) {
-    local q1 = math.Quaternion.fromEuler(start)
-    local q2 = math.Quaternion.fromEuler(end)
-    return q1.slerp(q2, t).toVector()
-}
-
-/*
- * Performs smooth interpolation between two values using a smoothstep function.
- *
- * @param {number} edge0 - The lower edge of the interpolation range.
- * @param {number} edge1 - The upper edge of the interpolation range.
- * @param {number} value - The interpolation parameter.
- * @returns {number} - The interpolated value.
-*/
-lerp["SmoothStep"] <- function(edge0, edge1, value) {
-    local t = math.clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
-    return t * t * (3.0 - 2.0 * t)
-}
-
-
-/*
- * Performs linear interpolation between two values.
- *
- * @param {number} f1 - The start value.
- * @param {number} f2 - The end value.
- * @param {number} i1 - The start interpolation parameter.
- * @param {number} i2 - The end interpolation parameter.
- * @param {number} value - The interpolation parameter.
- * @returns {number} - The interpolated value.
-*/
-lerp["FLerp"] <- function( f1, f2, i1, i2, value ) {
-    return f1 + (f2 - f1) * (value - i1) / (i2 - i1);
-}
-// More info here: https://gizma.com/easing/
-
-math["ease"] <- {}
-local ease = math["ease"]
-
-ease["InSine"] <- function(t) { 
-    return 1 - cos((t * PI) / 2);
-}
-
-ease["OutSine"] <- function(t) { 
-    return sin((t * PI) / 2);
-}
-
-ease["InOutSine"] <- function(t) { 
-    return -(cos(PI * t) - 1) / 2;
-}
-
-ease["InQuad"] <- function(t) { 
-    return t * t; 
-}
-
-ease["OutQuad"] <- function(t) { 
-    return 1 - (1 - t) * (1 - t); 
-}
-
-ease["InOutQuad"] <- function(t) { 
-    return t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2;
-}
-
-ease["InCubic"] <- function(t) { 
-    return t * t * t;
-}
-
-ease["OutCubic"] <- function(t) { 
-    return 1 - pow(1 - t, 3);
-}
-
-ease["InOutCubic"] <- function(t) { 
-    return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
-}
-
-ease["InQuart"] <- function(t) {
-    return t * t * t * t; 
-}
-
-ease["OutQuart"] <- function(t) { 
-    return 1 - pow(1 - t, 4);
-}
-
-ease["InOutQuart"] <- function(t) { 
-    return t < 0.5 ? 8 * t * t * t * t : 1 - pow(-2 * t + 2, 4) / 2;
-}
-
-ease["InQuint"] <- function(t) { 
-    return t * t * t * t * t;
-}
-
-ease["OutQuint"] <- function(t) { 
-    return 1 - pow(1 - t, 5);
-}
-
-ease["InOutQuint"] <- function(t) { 
-    return t < 0.5 ? 16 * t * t * t * t * t : 1 - pow(-2 * t + 2, 5) / 2;
-}
-
-ease["InExpo"] <- function(t) { 
-    return t == 0 ? 0 : pow(2, 10 * t - 10);
-}
-
-ease["OutExpo"] <- function(t) { 
-    return t == 1 ? 1 : 1 - pow(2, -10 * t);
-}
-
-ease["InOutExpo"] <- function(t) { 
-    return t == 0 ? 0 : t == 1 ? 1 : t < 0.5 ? pow(2, 20 * t - 10) / 2 : (2 - pow(2, -20 * t + 10)) / 2;
-}
-
-ease["InCirc"] <- function(t) { 
-    return 1 - sqrt(1 - pow(t, 2));
-}
-
-ease["OutCirc"] <- function(t) { 
-    return sqrt(1 - pow(t - 1, 2));
-}
-
-ease["InOutCirc"] <- function(t) { 
-    return t < 0.5 ? (1 - sqrt(1 - pow(2 * t, 2))) / 2 : (sqrt(1 - pow(-2 * t + 2, 2)) + 1) / 2;
-}
-
-ease["InBack"] <- function(t) { 
-    local c1 = 1.70158;
-    local c3 = c1 + 1;
-    return c3 * t * t * t - c1 * t * t;
-}
-
-ease["OutBack"] <- function(t) { 
-    local c1 = 1.70158;
-    local c3 = c1 + 1;
-    return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2);
-}
-
-ease["InOutBack"] <- function(t) { 
-    local c1 = 1.70158;
-    local c2 = c1 * 1.525;
-    return t < 0.5
-       ? (pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
-       : (pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
-}
-
-ease["InElastic"] <- function(t) { 
-    local c4 = (2 * PI) / 3;
-    return t == 0
-        ? 0
-        : t == 1
-        ? 1
-        : -pow(2, 10 * t - 10) * sin((t * 10 - 10.75) * c4);
-}
-
-ease["OutElastic"] <- function(t) { 
-    local c4 = (2 * PI) / 3;
-    return t == 0
-    ? 0
-    : t == 1
-    ? 1
-    : pow(2, -10 * t) * sin((t * 10 - 0.75) * c4) + 1;
-}
-
-ease["InOutElastic"] <- function(t) { 
-    local c5 = (2 * PI) / 4.5;
-    return t == 0
-    ? 0
-    : t == 1
-    ? 1
-    : t < 0.5
-    ? -(pow(2, 20 * t - 10) * sin((20 * t - 11.125) * c5)) / 2
-    : (pow(2, -20 * t + 10) * sin((20 * t - 11.125) * c5)) / 2 + 1;
-}
-
-ease["InBounce"] <- function(t) { 
-    return 1 - math.ease.OutBounce(1 - t); // todo
-}
-
-ease["OutBounce"] <- function(t) { 
-    local n1 = 7.5625;
-    local d1 = 2.75;
-    if (t < 1 / d1) {
-    return n1 * t * t;
-    } else if (t < 2 / d1) {
-        return n1 * (t -= 1.5 / d1) * t + 0.75;
-    } else if (t < 2.5 / d1) {
-        return n1 * (t -= 2.25 / d1) * t + 0.9375;
-    } else {
-        return n1 * (t -= 2.625 / d1) * t + 0.984375;
-    }
-}
-
-ease["InOutBounce"] <- function(t) { 
-    return t < 0.5
-    ? (1 - math.ease.OutBounce(1 - 2 * t)) / 2
-    : (1 + math.ease.OutBounce(2 * t - 1)) / 2;
-}
-math["Quaternion"] <- class {
-    x = null;
-    y = null;
-    z = null;
-    w = null;
-    
-    /*
-     * Creates a new quaternion.
-     *
-     * @param {number} x - The x component.
-     * @param {number} y - The y component.
-     * @param {number} z - The z component.
-     * @param {number} w - The w component.
-    */
-    constructor(x,y,z,w) {
-        this.x = x
-        this.y = y
-        this.z = z
-        this.w = w
-    }
-
-    /*
-     * Creates a new quaternion from Euler angles.
-     *
-     * @param {Vector} angles - The Euler angles in degrees (pitch, yaw, roll).
-     * @returns {Quaternion} - The new quaternion.
-    */
-    function fromEuler(angles) {
-        // Convert angles to radians
-        local pitch = angles.z * 0.5 / 180 * PI
-        local yaw = angles.y * 0.5 / 180 * PI
-        local roll = angles.x * 0.5 / 180 * PI
-
-        // Calculate sine and cosine values
-        local sRoll = sin(roll);
-        local cRoll = cos(roll);
-        local sPitch = sin(pitch);
-        local cPitch = cos(pitch);
-        local sYaw = sin(yaw);
-        local cYaw = cos(yaw);
-
-        // Calculate quaternion components
-        return math.Quaternion(
-            cYaw * cRoll * sPitch - sYaw * sRoll * cPitch,
-            cYaw * sRoll * cPitch + sYaw * cRoll * sPitch,
-            sYaw * cRoll * cPitch - cYaw * sRoll * sPitch,
-            cYaw * cRoll * cPitch + sYaw * sRoll * sPitch
-        )
-    }
-
-    /*
-     * Creates a new quaternion from a vector.
-     *
-     * @param {Vector} vector - The vector.
-     * @returns {Quaternion} - The new quaternion with the vector's components as x, y, z, and w set to 0.
-    */
-    function fromVector(vector) {
-        return math.Quaternion(vector.x, vector.y, vector.z, 0)
-    }
-
-
-    /*
-     * Rotates a vector by the quaternion.
-     *
-     * @param {Vector} vector - The vector to rotate.
-     * @returns {Vector} - The rotated vector.
-    */
-    function rotateVector(vector) {
-        // Convert vector to quaternion
-        local vecQuaternion = this.fromVector(vector)
-    
-        // Find the inverse quaternion
-        local inverse = math.Quaternion(
-            -this.x,
-            -this.y,
-            -this.z,
-            this.w
-        )
-    
-        // Apply quaternion rotations to the vector
-        local rotatedQuaternion = this * vecQuaternion * inverse;
-    
-        // Return the result as a rotated vector
-        return Vector(rotatedQuaternion.x, rotatedQuaternion.y, rotatedQuaternion.z);
-    }
-    
-    /*
-     * Un-rotates a vector by the quaternion.
-     *
-     * @param {Vector} vector - The vector to un-rotate.
-     * @returns {Vector} - The un-rotated vector.
-    */
-    function unrotateVector(vector) {
-        local vecQuaternion = this.fromVector(vector)
-
-        // Find the conjugate quaternion
-        local conjugateQuaternion = math.Quaternion(
-            -this.x,
-            -this.y,
-            -this.z,
-            this.w
-        );
-        
-        // Apply quaternion rotations to the vector with inverse rotation angles
-        local unrotatedQuaternion = conjugateQuaternion * vecQuaternion * this;
-    
-        // Return the result as an un-rotated vector
-        return Vector(unrotatedQuaternion.x, unrotatedQuaternion.y, unrotatedQuaternion.z);
-    }
-
-    /*
-     * Performs spherical linear interpolation (slerp) between two quaternions.
-     *
-     * @param {Quaternion} targetQuaternion - The target quaternion to interpolate towards.
-     * @param {Number} t - The interpolation parameter between 0 and 1.
-     * @returns {Quaternion} - The interpolated quaternion.
-    */
-    function slerp(targetQuaternion, t) {
-        // Normalize quaternions
-        local quaternion1 = this.normalize()
-        local quaternion2 = targetQuaternion.normalize()
-
-        // Calculate angle between quaternions
-        local cosTheta = quaternion1.x * quaternion2.x + quaternion1.y * quaternion2.y + quaternion1.z * quaternion2.z + quaternion1.w * quaternion2.w;
-
-        // If angle is negative, invert the second quaternion
-        if (cosTheta < 0) {
-            quaternion2.x *= -1;
-            quaternion2.y *= -1;
-            quaternion2.z *= -1;
-            quaternion2.w *= -1;
-            cosTheta *= -1;
-        }
-
-        // Calculate interpolation values
-        local theta = acos(cosTheta);
-        local sinTheta = sin(theta);
-        local weight1 = sin((1 - t) * theta) / sinTheta;
-        local weight2 = sin(t * theta) / sinTheta;
-
-        // Interpolate quaternions
-        local resultQuaternion = math.Quaternion(
-            weight1 * quaternion1.x + weight2 * quaternion2.x,
-            weight1 * quaternion1.y + weight2 * quaternion2.y,
-            weight1 * quaternion1.z + weight2 * quaternion2.z,
-            weight1 * quaternion1.w + weight2 * quaternion2.w
-        );
-
-        return resultQuaternion.normalize()
-    }
-
-    /*
-     * Normalizes the quaternion.
-     *
-     * @returns {Quaternion} - The normalized quaternion.
-    */
-    function normalize() {
-        local magnitude = this.length()
-
-        return math.Quaternion(
-            this.x / magnitude,
-            this.y / magnitude,
-            this.z / magnitude,
-            this.w / magnitude
-        )
-    }
-
-    /*
-     * Calculates the dot product of two quaternions.
-     * 
-     * @param {Quaternion} other - The other quaternion.
-     * @returns {number} - The dot product.
-    */
-    function dot(other) {
-        return this.x * other.x + this.y * other.y + this.z * other.z + this.w * other.w;
-    }
-
-    /*
-     * Calculates the length (magnitude) of the quaternion.
-     * 
-     * @returns {number} - The length of the quaternion.
-    */
-    function length() {
-        return sqrt(this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w);
-    }
-
-    /*
-     * Calculates the inverse of the quaternion.
-     * 
-     * @returns {Quaternion} - The inverse quaternion.
-    */
-    function inverse() {
-        local lengthSquared = this.length() * this.length();
-        return math.Quaternion(this.x / lengthSquared, -this.y / lengthSquared, -this.z / lengthSquared, -this.w / lengthSquared);
-    }
-
-    /*
-     * Creates a quaternion from an axis and an angle.
-     * 
-     * @param {Vector} axis - The axis of rotation (normalized vector).
-     * @param {number} angle - The angle of rotation in radians.
-     * @returns {Quaternion} - The quaternion.
-    */
-    function fromAxisAngle(axis, angle) {
-        local halfAngle = angle * 0.5;
-        local sinHalfAngle = sin(halfAngle);
-        return math.Quaternion(axis.x * sinHalfAngle, axis.y * sinHalfAngle, axis.z * sinHalfAngle, cos(halfAngle));
-    }
-
-    /*
-     * Converts the quaternion to an axis and an angle.
-     * 
-     * @returns {table} - A table with keys "axis" (Vector) and "angle" (number).
-    */
-    function toAxisAngle() {
-        local scale = sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
-        if (scale < 0.001) {
-            return { axis = Vector(1, 0, 0), angle = 0 };
-        }
-        return { 
-            axis = Vector(this.x / scale, this.y / scale, this.z / scale), 
-            angle = 2 * acos(this.w) 
-        };
-    }
-
-
-    /*
-     * Converts the quaternion to a vector representing Euler angles.
-     *
-     * @returns {Vector} - The vector representing Euler angles in degrees.
-    */
-    function toVector() {
-        local sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
-        local cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
-        local roll = atan2(sinr_cosp, cosr_cosp);
-
-        local sinp = 2 * (this.w * this.y - this.z * this.x);
-        local pitch;
-        if (abs(sinp) >= 1) {
-            pitch = math.copysign(PI / 2, sinp); // PI/2 or -PI/2
-        } else {
-            pitch = asin(sinp);
-        }
-
-        local siny_cosp = 2 * (this.w * this.z + this.x * this.y);
-        local cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
-        local yaw = atan2(siny_cosp, cosy_cosp);
-
-        // Convert angles to degrees
-        local x = pitch * 180 / PI;
-        local y = yaw * 180 / PI;
-        local z = roll * 180 / PI;
-
-        return Vector( x, y, z )
-    }
-
-    /* 
-     * Checks if two quaternions are equal based on their components and length.
-     *
-     * @param {Quaternion} other - The other quaternion to compare.
-     * @returns {boolean} - True if the quaternions are equal, false otherwise.
-    */
-    function isEqually(other) {
-        return this.cmp(other) == 0
-    }
-
-    /*
-     * Compares two quaternions based on their magnitudes.
-     *
-     * @param {Quaternion} other - The other quaternion to compare.
-     * @returns {number} - 1 if this quaternion's magnitude is greater, -1 if less, 0 if equal.
-    */
-    function cmp(other) {
-        if (typeof other != "Quaternion") {
-            throw "Cannot compare quaternion with non-quaternion type";
-        }
-    
-        local thisMagnitude = math.round(this.length(), 10000);
-        local otherMagnitude = math.round(other.length(), 10000);
-
-        if (thisMagnitude > otherMagnitude) {
-            return 1;
-        } else if (thisMagnitude < otherMagnitude) {
-            return -1;
-        } else {
-            return 0; 
-        }
-    }
-
-    function _cmp(other) return this.cmp(other)
-
-
-    function _add(other) {
-        return math.Quaternion(
-            this.x + other.x,
-            this.y + other.y,
-            this.z + other.z,
-            this.w + other.w
-        )
-    }
-
-
-    function _sub(other) {
-        return math.Quaternion(
-            this.x - other.x,
-            this.y - other.y,
-            this.z - other.z,
-            this.w - other.w
-        )
-    }
-    
-    /*
-     * Multiplies two quaternions.
-     *
-     * @param {Quaternion} other - The other quaternion.
-     * @returns {Quaternion} - The multiplication result.
-    */
-    function _mul(other) {
-        if(typeof other == "Quaternion") {
-            return math.Quaternion(
-                this.w * other.x + this.x * other.w + this.y * other.z - this.z * other.y,
-                this.w * other.y - this.x * other.z + this.y * other.w + this.z * other.x,
-                this.w * other.z + this.x * other.y - this.y * other.x + this.z * other.w,
-                this.w * other.w - this.x * other.x - this.y * other.y - this.z * other.z
-            )
-        }
-
-        return math.Quaternion( 
-            this.x * other,
-            this.y * other,
-            this.z * other,
-            this.w * other
-        )
-    }
-
-    function _tostring() {
-        return "Quaternion: (" + x + ", " + y + ", " + z + ", " + w + ")"
-    }
-
-    function _typeof() {
-        return "Quaternion"
-    }
-}
-math["Matrix"] <- class {
-    a = 1; b = 0; c = 0;
-    d = 0; e = 1; f = 0;
-    g = 0; h = 0; k = 1;
-
-    /*
-     * Creates a new matrix.
-     * 
-     * @param {number} a - The value at row 1, column 1.
-     * @param {number} b - The value at row 1, column 2.
-     * @param {number} c - The value at row 1, column 3.
-     * @param {number} d - The value at row 2, column 1.
-     * @param {number} e - The value at row 2, column 2.
-     * @param {number} f - The value at row 2, column 3.
-     * @param {number} g - The value at row 3, column 1.
-     * @param {number} h - The value at row 3, column 2.
-     * @param {number} k - The value at row 3, column 3.
-    */
-    constructor(a = 1, b = 0, c = 0,
-                d = 0, e = 1, f = 0,
-                g = 0, h = 0, k = 1
-        ) {
-            this.a = a; this.b = b; this.c = c;
-            this.d = d; this.e = e; this.f = f;
-            this.g = g; this.h = h; this.k = k;
-        }
-    /*
-     * Creates a rotation matrix from Euler angles.
-     * 
-     * @param {Vector} angles - Euler angles in degrees (pitch, yaw, roll).
-     * @returns {Matrix} - The rotation matrix.
-    */
-    function fromEuler(angles) {
-        local sinX = sin(-angles.z / 180 * PI);
-        local cosX = cos(-angles.z / 180 * PI);
-        local sinY = sin(-angles.x / 180 * PI);
-        local cosY = cos(-angles.x / 180 * PI);
-        local sinZ = sin(-angles.y / 180 * PI);
-        local cosZ = cos(-angles.y / 180 * PI);
-        return math.Matrix(
-            cosY * cosZ, -sinX * -sinY * cosZ + cosX * sinZ, cosX * -sinY * cosZ + sinX * sinZ,
-            cosY * -sinZ, -sinX * -sinY * -sinZ + cosX * cosZ, cosX * -sinY * -sinZ + sinX * cosZ,
-            sinY, -sinX * cosY, cosX * cosY
-        );
-    }
-
-    /*
-     * Rotates a point using the matrix.
-     * 
-     * @param {Vector} point - The point to rotate.
-     * @returns {Vector} - The rotated point.
-    */
-    function rotateVector(point) {
-        return Vector(
-            point.x * this.a + point.y * this.b + point.z * this.c,
-            point.x * this.d + point.y * this.e + point.z * this.f,
-            point.x * this.g + point.y * this.h + point.z * this.k
-        );
-    }
-
-    /*
-     * Unrotates a point using the matrix.
-     * 
-     * @param {Vector} point - The point to unrotate.
-     * @returns {Vector} - The unrotated point.
-    */
-    function unrotateVector(point) {
-        return Vector(
-            point.x * this.a + point.y * this.d + point.z * this.g,
-            point.x * this.b + point.y * this.e + point.z * this.h,
-            point.x * this.c + point.y * this.f + point.z * this.k
-        );
-    }
-
-    /*
-     * Transposes the matrix.
-     * 
-     * @returns {Matrix} - The transposed matrix.
-    */
-    function transpose() {
-        return math.Matrix(
-            this.a, this.d, this.g,
-            this.b, this.e, this.h,
-            this.c, this.f, this.k
-        );
-    }
-
-    /*
-     * Calculates the inverse of the matrix.
-     * 
-     * @returns {Matrix} - The inverse matrix.
-     * @throws {Error} - If the matrix is singular (determinant is zero).
-    */
-    function inverse() {
-        local det = this.determinant();
-        if (det == 0) {
-            throw "Matrix is singular (determinant is zero)"
-        }
-        local invDet = 1 / det;
-        return math.Matrix(
-            (this.e * this.k - this.f * this.h) * invDet,
-            (this.c * this.h - this.b * this.k) * invDet,
-            (this.b * this.f - this.c * this.e) * invDet,
-            (this.f * this.g - this.d * this.k) * invDet,
-            (this.a * this.k - this.c * this.g) * invDet,
-            (this.c * this.d - this.a * this.f) * invDet,
-            (this.d * this.h - this.e * this.g) * invDet,
-            (this.b * this.g - this.a * this.h) * invDet,
-            (this.a * this.e - this.b * this.d) * invDet
-        );
-    }
-
-    /*
-     * Calculates the determinant of the matrix.
-     * 
-     * @returns {number} - The determinant of the matrix.
-    */
-    function determinant() {
-        return this.a * (this.e * this.k - this.f * this.h) -
-               this.b * (this.d * this.k - this.f * this.g) +
-               this.c * (this.d * this.h - this.e * this.g);
-    }
-
-    /*
-     * Scales the matrix by a given factor.
-     * 
-     * @param {number} factor - The scaling factor.
-     * @returns {Matrix} - The scaled matrix.
-    */
-    function scale(factor) {
-        return math.Matrix(
-            this.a * factor, this.b * factor, this.c * factor,
-            this.d * factor, this.e * factor, this.f * factor,
-            this.g * factor, this.h * factor, this.k * factor
-        );
-    }
-
-    /*
-     * Rotates the matrix around the X axis by a given angle.
-     * 
-     * @param {number} angle - The angle of rotation in radians.
-     * @returns {Matrix} - The rotated matrix.
-    */
-    function rotateX(angle) {
-        local sinAngle = sin(angle);
-        local cosAngle = cos(angle);
-        return math.Matrix(
-            1, 0, 0,
-            0, cosAngle, -sinAngle,
-            0, sinAngle, cosAngle
-        ) * this;
-    }
-
-    /*
-     * Multiplies two matrices.
-     * 
-     * @param {Matrix} other - The other matrix.
-     * @returns {Matrix} - The result of the multiplication.
-    */
-    function _mul(other) {
-        return math.Matrix(
-            this.a * other.a + this.b * other.d + this.c * other.g,
-            this.a * other.b + this.b * other.e + this.c * other.h,
-            this.a * other.c + this.b * other.f + this.c * other.k,
-            this.d * other.a + this.e * other.d + this.f * other.g,
-            this.d * other.b + this.e * other.e + this.f * other.h,
-            this.d * other.c + this.e * other.f + this.f * other.k,
-            this.g * other.a + this.h * other.d + this.k * other.g,
-            this.g * other.b + this.h * other.e + this.k * other.h,
-            this.g * other.c + this.h * other.f + this.k * other.k
-        );
-    }
-
-    /*
-     * Adds two matrices.
-     * 
-     * @param {Matrix} other - The other matrix.
-     * @returns {Matrix} - The result of the addition.
-    */
-    function _add(other) {
-        return math.Matrix(
-            this.a + other.a, this.b + other.b, this.c + other.c,
-            this.d + other.d, this.e + other.e, this.f + other.f,
-            this.g + other.g, this.h + other.h, this.k + other.k
-        );
-    }
-
-    /*
-     * Subtracts two matrices.
-     * 
-     * @param {Matrix} other - The other matrix.
-     * @returns {Matrix} - The result of the subtraction.
-    */
-    function _sub(other) {
-        return math.Matrix(
-            this.a - other.a, this.b - other.b, this.c - other.c,
-            this.d - other.d, this.e - other.e, this.f - other.f,
-            this.g - other.g, this.h - other.h, this.k - other.k
-        );
-    }
-
-    /*
-     * Checks if two matrices are equal based on their components and sum.
-     *
-     * @param {Matrix} other - The other matrix to compare.
-     * @returns {boolean} - True if the matrices are equal, false otherwise.
-    */
-    function isEqually(other) {
-        return this.cmp(other) == 0
-    }
-
-    /*
-     * Compares two matrices based on the sum of their components.
-     *
-     * @param {Matrix} other - The other matrix to compare.
-     * @returns {number} - 1 if this matrix's sum is greater, -1 if less, 0 if equal.
-    */
-    function cmp(other) {
-        if (typeof other != "Matrix") {
-            throw "Cannot compare matrix with non-matrix type";
-        }
-    
-        local thisSum = a + b - c + d + e + f - g + h - k;
-        local otherSum = other.a + other.b - other.c + other.d + other.e + other.f - other.g + other.h - other.k;
-        
-        if (thisSum > otherSum) {
-            return 1;
-        } else if (thisSum < otherSum) {
-            return -1;
-        } else {
-            return 0;
-        }
-    }
-
-    function _cmp(other) return this.cmp(other)
-
-    function _tostring() {
-        return "Matrix: {" + a + ", " + b + ", " + c + "\n\t " + d + ", " + e + ", " + f + "\n\t " + g + ", " + h + ", " + k + "}"
-    }
-
-    function _typeof() {
-        return "Matrix"
-    }
-}
+::pcapEntityCache <- {}
+::EntitiesScopes <- {}
+::TracePlusIgnoreEnts <- {}
 
 /*+--------------------------------------------------------------------------------+
 |                           PCapture Vscripts Library                              |
@@ -1165,34 +52,23 @@ math["Matrix"] <- class {
 |   data structures like arrays, lists, and trees for efficient data management.   |
 +----------------------------------------------------------------------------------+ */
 
-::pcapEntityCache <- {}
-
 ::pcapEntity <- class {
     CBaseEntity = null;
-    EntityScope = null;
 
     /* 
      * Constructor for the entity object.
      *
      * @param {CBaseEntity} entity - The entity object.
     */
-    constructor(entity = null) { 
+    constructor(entity) { 
+        if (!entity || !entity.IsValid()) throw("pcapEntity: invalid entity");
         if(typeof entity == "pcapEntity")
             entity = entity.CBaseEntity
 
         this.CBaseEntity = entity
-        this.EntityScope = {}
+        EntitiesScopes[this.CBaseEntity] <- {}
         entity.ValidateScriptScope()
-        // this.uniqueId = UniqueString("pcapEntity")
-        // entity.GetScriptScope().self <- this // todo whoa!
-    }
-
-
-    function SetAngles(x, y, z) {
-        x = x >= 360 ? 0 : x
-        y = y >= 360 ? 0 : y
-        z = z >= 360 ? 0 : z
-        this.CBaseEntity.SetAngles(x, y, z)
+        entity.GetScriptScope().selfEx <- this // todo: no docs about it
     }
 
     /*
@@ -1200,7 +76,7 @@ math["Matrix"] <- class {
      *
      * @param {Vector} angles - The angle vector.
     */
-    function SetAbsAngles(angles) {
+    function SetAngles2(angles) {
         this.CBaseEntity.SetAngles(angles.x, angles.y, angles.z)
     }
 
@@ -1225,7 +101,8 @@ math["Matrix"] <- class {
         if(fireDelay != 0)
             return ScheduleEvent.Add(eventName, this.Kill, fireDelay, null, this)
 
-        EntFireByHandle(CBaseEntity, "kill")
+        if(!this.CBaseEntity || !this.CBaseEntity.IsValid()) return
+        EntFireByHandle(this.CBaseEntity, "kill")
         this.CBaseEntity = null
     }
 
@@ -1240,8 +117,14 @@ math["Matrix"] <- class {
         if(fireDelay != 0)
             return ScheduleEvent.Add(eventName, this.Dissolve, fireDelay, null, this)
 
+        if(!dissolver || !dissolver.IsValid()) throw("The entity 'dissolver' is missing, the Dissolve method will not work.")
         if(this.GetName() == "")
             this.SetUniqueName("targetname")
+        for(local entity; entity = Entities.FindByName(entity, this.GetName()); ) if(!macros.IsEqual(this, entity)) {
+            this.SetUniqueName()
+            break
+        }
+
         dissolver.SetKeyValue("target", this.GetName())
         EntFireByHandle(dissolver, "dissolve")
 
@@ -1364,9 +247,15 @@ math["Matrix"] <- class {
     */
     function ConnectOutputEx(outputName, script, delay = 0, fires = -1) {
         if(typeof script == "function") {
-            local funcName = UniqueString("OutputFunc")
-            getroottable()[funcName] <- script
+            local funcName = script.getinfos().name
+            local src = script.getinfos().src
+            if(!funcName || src == "unnamedbuffer") { // If scripts is an anonymous function, assign it a unique name and add it to the root scope
+                funcName = UniqueString("OutputFunc")
+                getroottable()[funcName] <- script
+            }
             script = funcName + "()"
+        } else {
+            return this.ConnectOutput(outputName, script)
         }
 
         this.AddOutput(outputName, "!self", "RunScriptCode", script, delay, fires)
@@ -1381,8 +270,10 @@ math["Matrix"] <- class {
      * This function enables the association of custom logic with specific entity inputs, facilitating communication and interaction between entities and external scripts.
     */
     function SetInputHook(inputName, closure) {
-        if(this.ValidateScriptScope())
-            this.GetScriptScope()["Input" + inputName] <- closure
+        if(this.ValidateScriptScope() == false) return
+        this.GetScriptScope()["Input" + inputName] <- closure
+        // This is a quick hack to address a bug where the game sometimes calls `Inputname` instead of `InputName` (Valve, why?)
+        this.GetScriptScope()["Input" + inputName.tolower()] <- closure
     }
 
     /*
@@ -1414,7 +305,7 @@ math["Matrix"] <- class {
      * This function provides more control over sound playback compared to EmitSound. It allows you to adjust the volume,
      * loop sounds that are not inherently loopable, and stop the sound playback using StopSoundEx.
     */
-     function EmitSoundEx(soundName, volume = 10, looped = false, fireDelay = 0, eventName = "global") { // add volume and loop flag
+    function EmitSoundEx(soundName, volume = 10, looped = false, fireDelay = 0, eventName = "global") { // add volume and loop flag
         if(fireDelay != 0)
             return ScheduleEvent.Add(eventName, this.EmitSoundEx, fireDelay, [soundName], this)
         
@@ -1497,11 +388,15 @@ math["Matrix"] <- class {
         if(fireDelay != 0)
             return ScheduleEvent.Add(eventName, this.SetParent, fireDelay, [parentEnt], this)
         
-        this.SetUserData("parent", parentEnt)
         if(typeof parentEnt != "string") {
             local Pent = entLib.FromEntity(parentEnt)
+            local hasUniqueName = true
             if(Pent.GetName() == "") 
                 Pent.SetUniqueName("parent")
+            for(local entity; entity = Entities.FindByName(entity, Pent.GetName()); ) if(!macros.IsEqual(Pent, entity)) {
+                Pent.SetUniqueName("parent")
+                break
+            }
             parentEnt = Pent.GetName()
         }
         
@@ -1509,12 +404,34 @@ math["Matrix"] <- class {
     }
 
     /*
-     * Gets the parent of the entity.
+     * Gets a list of all DIRECT children of this entity.
+     * This function is not recursive and will not find grandchildren.
      *
-     * @returns {pcapEntity|null} - The parent entity object or null if no parent is set.
+     * @returns {List} A List containing all direct child pcaptEntity objects.
     */
-    function GetParent() {
-        return this.GetUserData("parent")
+    function GetChildren() {
+        local childrenList = List()
+
+        local child = this.CBaseEntity.FirstMoveChild(); 
+        while(child) {
+            childrenList.append(entLib.FromEntity(child));
+            child = child.NextMovePeer();
+        }
+
+        return childrenList;
+    }
+
+    /*
+     * Recursively finds all descendants (children, grandchildren, etc.) of this entity.
+     * Performs a depth-first search of the entity hierarchy.
+     *
+     * @returns {List} A List containing all descendant pcaptEntity objects.
+    */    
+    function GetAllChildrenRecursively() {
+        local descendantsList = List();
+        _findDescendantsRecursive(this.CBaseEntity, descendantsList);
+
+        return descendantsList;
     }
 
 
@@ -1528,7 +445,7 @@ math["Matrix"] <- class {
         if(fireDelay != 0)
             return ScheduleEvent.Add(eventName, this.SetCollision, fireDelay, [solidType], this)
         
-        EntFireByHandle(this.CBaseEntity, "SetSolidtype", solidType.tostring()) // todo?
+        EntFireByHandle(this.CBaseEntity, "SetSolidtype", solidType.tostring()) 
         this.SetUserData("Solidtype", solidType)
     }
 
@@ -1660,6 +577,10 @@ math["Matrix"] <- class {
         TracePlusIgnoreEnts[this.CBaseEntity] <- isEnabled
     }
 
+    function IsTraceIgnored() {
+        return this.GetUserData("TracePlusIgnore")
+    }
+
     /*
      * Sets the spawnflags for the entity.
      *
@@ -1686,7 +607,7 @@ math["Matrix"] <- class {
         EntFireByHandle(this.CBaseEntity, "AddOutput", "ModelScale " + scaleValue)
         this.SetUserData("ModelScale", scaleValue)
         // hack for entity update
-        EntFireByHandle(this, "SetBodyGroup", "1"); EntFireByHandle(this, "SetBodyGroup", "0", 0.02)
+        EntFireByHandle(this.CBaseEntity, "SetBodyGroup", "1"); EntFireByHandle(this.CBaseEntity, "SetBodyGroup", "0", 0.02)
     }
 
     /*
@@ -1701,33 +622,25 @@ math["Matrix"] <- class {
 
 
     /*
+    * Sets the absolute center of the entity in world space.
+    * This will override any parent-relative positioning.
+    *
+    * @param {Vector} vector - The desired absolute center vector in world coordinates.
+    */
+    function SetAbsCenter(vector) {
+        local offset = this.CBaseEntity.GetCenter() - this.CBaseEntity.GetOrigin()
+        this.CBaseEntity.SetAbsOrigin( vector - offset )
+    }
+
+    /*
      * Sets the center of the entity.
      *
      * @param {Vector} vector - The center vector.
     */
     function SetCenter(vector) {
         local offset = this.CBaseEntity.GetCenter() - this.CBaseEntity.GetOrigin()
-        this.CBaseEntity.SetAbsOrigin( vector - offset )
+        this.CBaseEntity.SetOrigin( vector - offset )
     }
-
-    /*
-     * Sets the bounding box of the entity.
-     *
-     * @param {Vector|string} min - The minimum bounds vector or a string representation of the vector.
-     * @param {Vector|string} max - The maximum bounds vector or a string representation of the vector.
-    */
-    function SetBBox(minBounds, maxBounds) {
-        // Please specify the data type of `min` and `max` to improve the documentation accuracy.
-        if (type(minBounds) == "string") {
-            minBounds = macros.StrToVec(minBounds)
-        }
-        if (type(maxBounds) == "string") {
-            maxBounds = macros.StrToVec(maxBounds)
-        }
-
-        this.CBaseEntity.SetSize(minBounds, maxBounds)
-    }
-
 
     /*
      * Sets a context value for the entity.
@@ -1751,9 +664,8 @@ math["Matrix"] <- class {
      * @param {any} value - The value to store.
     */
     function SetUserData(name, value) {
-        this.EntityScope[name.tolower()] <- value
+        EntitiesScopes[this.CBaseEntity][name.tolower()] <- value
     }
-
 
     /*
      * Gets a stored user data value.
@@ -1763,21 +675,77 @@ math["Matrix"] <- class {
     */ 
     function GetUserData(name) {
         name = name.tolower()
-        if(name in this.EntityScope)
-            return this.EntityScope[name]
+        if(name in EntitiesScopes[this.CBaseEntity])
+            return EntitiesScopes[this.CBaseEntity][name]
         return null
     }
 
+    /*
+     * Calculates the local coordinates (position and angles) of this entity relative to its move parent.
+     * If the entity has no parent, its world coordinates are returned.
+     *
+     * @returns {table} A table containing the local coordinates: { pos = <Vector>, ang = <Vector> }.
+    */    
+    function GetLocalCoords() {
+        local pParent = this.CBaseEntity.GetMoveParent();
+        if (!pParent) {
+            // If there's no parent, local coordinates are equal to world coordinates.
+            return { pos = this.GetOrigin(), ang = this.GetAngles() };
+        }
+
+        // Get the world positions and angles of both entities
+        local childWorldPos = this.GetOrigin();
+        local parentWorldPos = pParent.GetOrigin();
+
+        local childWorldAng = this.GetAngles();
+        local parentWorldAng = pParent.GetAngles();
+
+        // Calculate the offset vector in world coordinates
+        local worldOffset = childWorldPos - parentWorldPos;
+
+        // "Unrotate" the world offset vector by the parent's angles to get the local position
+        local localPos = math.vector.unrotate(worldOffset, parentWorldAng);
+        local localAng = childWorldAng - parentWorldAng;
+
+        return { pos = localPos, ang = localAng };
+    }
 
     /*
-     * Gets the bounding box of the entity.
+     * A function that sets the entity's absolute origin in world space using teleportation.
+     * This function bypasses interpolation, making the position change instantaneous.
      *
-     * @returns {table} - The minimum bounds and maximum bounds of the entity.
+     * @param {Vector} desiredAbsVec - The desired absolute position in world coordinates.
     */
-    function GetBBox() {
-        local max = GetBoundingMaxs()
-        local min = GetBoundingMins()
-        return {min = min, max = max}
+    function SetAbsOrigin(desiredAbsVec) {
+        local pParent = this.CBaseEntity.GetMoveParent()
+
+        // If there is no parent, local coordinates are equivalent to absolute coordinates.
+        if (!pParent) {
+            return this.CBaseEntity.SetOrigin(desiredAbsVec)
+        }
+
+        // We have parent, so we need to convert the desired ABSOLUTE coordinates into LOCAL coordinates.
+        local parentWorldPos = pParent.GetOrigin()
+        local parentWorldAng = pParent.GetAngles()
+
+        // Calculate the offset vector from the parent to the desired point in world coordinates.
+        local worldOffsetVector = desiredAbsVec - parentWorldPos
+
+        // Transform the world offset vector into a local one.
+        local localPos = math.vector.unrotate(worldOffsetVector, parentWorldAng)
+
+        this.SetOrigin(localPos)
+    }
+
+    /*
+     * Sets the entity's absolute origin using the native engine method.
+     * Unlike the custom SetAbsOrigin, this method handles attachment parents correctly.
+     * However, it causes client-side interpolation (visual sliding) when moving the entity.
+     *
+     * @param {Vector} desiredAbsVec - The desired absolute position in world coordinates.
+    */
+    function SetAbsOriginNative(desiredAbsVec) {
+        this.CBaseEntity.SetAbsOrigin(desiredAbsVec)
     }
 
     /*
@@ -1801,12 +769,7 @@ math["Matrix"] <- class {
 
     //! TODO ADD TO DOCS
     function GetBoundingCenter() {
-        local cachedResult = GetUserData("BoundingCenter")
-        if(cachedResult) return cachedResult
-
-        local result = (this.GetBoundingMaxs() - this.GetBoundingMins()) * 0.5
-        this.SetUserData("BoundingCenter", result)
-        return result
+        return (this.CBaseEntity.GetBoundingMaxs() - this.CBaseEntity.GetBoundingMins()) * 0.5
     }
 
     /* 
@@ -1815,12 +778,12 @@ math["Matrix"] <- class {
      * @returns {table} - The minimum bounds, maximum bounds, and center of the entity.
     */ 
     function GetAABB() {
-        local max = CreateAABB(7)
-        local min = CreateAABB(0)
-        local center = CreateAABB(4)
-        return {min = min, center = center, max = max}
+        return {
+            min = this.CreateAABB(0),
+            center = this.CreateAABB(4),
+            max = this.CreateAABB(7)
+        }
     }
-
 
     /* 
      * Gets the index of the entity.
@@ -1952,11 +915,7 @@ math["Matrix"] <- class {
         if(stat == 4) 
             angles = Vector(45, 45, 45)
 
-        local cache = GetUserData("aabbCache")
-        if(cache && (angles - cache[0]).Length() <= 10)
-            return Vector(cache[1][stat], cache[2][stat], cache[3][stat]) // todo what about state 4?
-
-        local all_vertex = this.getBBoxPoints()
+        local all_vertex = this.GetBBoxPoints()
         local x = array(8)
         local y = array(8)
         local z = array(8)
@@ -1970,14 +929,13 @@ math["Matrix"] <- class {
         x.sort(); y.sort(); z.sort()
  
         local result
-        if(stat == 4) {// centered
+        if(stat == 4) { // centered
             result = ( Vector(x[7], y[7], z[7]) - Vector(x[0], y[0], z[0]) ) * 0.5
         } 
         else {
             result = Vector(x[stat], y[stat], z[stat])
         }
         
-        this.SetUserData("aabbCache", [angles, x, y, z])
         return result
     }
 
@@ -1986,17 +944,17 @@ math["Matrix"] <- class {
      *
      * @returns {Array<Vector>} - The 8 vertices of the bounding box.  
     */
-    function getBBoxPoints() {
+    function GetBBoxPoints() {
         local max = this.GetBoundingMaxs();
         local min = this.GetBoundingMins();
         local angles = this.GetAngles()
     
         local getVertex = macros.GetVertex
-        return [ // todo cache it?
+        return [
             getVertex(max, min, min, angles), // 0 - Right-Bottom-Front
             getVertex(max, max, min, angles), // 1 - Right-Top-Front
             getVertex(min, max, min, angles), // 2 - Left-Top-Front
-            getVertex(min, min, min, angles)  // 3 - Left-Bottom-Front 
+            getVertex(min, min, min, angles), // 3 - Left-Bottom-Front 
             getVertex(min, min, max, angles), // 4 - Left-Bottom-Back
             getVertex(min, max, max, angles), // 5 - Left-Top-Back
             getVertex(max, max, max, angles), // 6 - Right-Top-Back
@@ -2009,10 +967,10 @@ math["Matrix"] <- class {
      *
      * @returns {array} - An array of 12 Vector triplets, where each triplet represents the three vertices of a triangle face.
     */
-    function getBBoxFaces() {
-        local vertices = this.getBBoxPoints()
+    function GetBBoxFaces() {
+        local vertices = this.GetBBoxPoints()
         local getTriangle = macros.GetTriangle
-        return [ // todo cache it?
+        return [
             /* Bottom face triangles */ 
             getTriangle(vertices[0], vertices[3], vertices[4]), // Face 0: Right-Bottom-Front, Left-Bottom-Front, Left-Bottom-Back
             getTriangle(vertices[0], vertices[4], vertices[7]), // Face 1: Right-Bottom-Front, Left-Bottom-Back, Right-Bottom-Back
@@ -2045,7 +1003,7 @@ math["Matrix"] <- class {
      * @param {pcapEntity} other - The other entity to compare.
      * @returns {boolean} - True if the entities are equal, false otherwise.
     */
-    function isEqually(other) return this.entindex() == other.entindex()
+    function IsEqual(other) return this.entindex() == other.entindex()
 
     /*
      * Converts the entity object to a string.
@@ -2060,6 +1018,23 @@ math["Matrix"] <- class {
      * @returns {string} - The type of the entity object.
     */
     function _typeof() return "pcapEntity"
+}
+
+/*
+ * Internal helper function to perform a recursive depth-first search for descendants.
+ * This should not be called directly.
+ *
+ * @param {CBaseEntity} pCurrentParent - The entity to search for children of.
+ * @param {List} resultList - The list to append found children to.
+*/
+::_findDescendantsRecursive <- function(pCurrentParent, resultList) {
+    local child = pCurrentParent.FirstMoveChild();
+
+    while (child) {
+        resultList.append(entLib.FromEntity(child));
+        _findDescendantsRecursive(child, resultList);
+        child = child.NextMovePeer();
+    }
 }
 
 function pcapEntity::ConnectOutput(output, funcName) this.CBaseEntity.ConnectOutput(output, funcName)
@@ -2089,13 +1064,39 @@ function pcapEntity::ValidateScriptScope() return this.CBaseEntity.ValidateScrip
 function pcapEntity::GetScriptScope() return this.CBaseEntity.GetScriptScope()
 function pcapEntity::entindex() return this.CBaseEntity.entindex()
 
-function pcapEntity::SetAbsOrigin(vector) this.CBaseEntity.SetAbsOrigin(vector)
 function pcapEntity::SetForwardVector(vector) this.CBaseEntity.SetForwardVector(vector)
 function pcapEntity::SetHealth(health) this.CBaseEntity.SetHealth(health)
 function pcapEntity::SetMaxHealth(health) this.CBaseEntity.SetMaxHealth(health)
 function pcapEntity::SetModel(model_name) this.CBaseEntity.SetModel(model_name)
 function pcapEntity::SetOrigin(vector) this.CBaseEntity.SetOrigin(vector)
+function pcapEntity::SetAngles(x, y, z) this.CBaseEntity.SetAngles(x, y, z)
 function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
+function pcapEntity::SetBBox(mins, maxs) this.CBaseEntity.SetSize(mins, maxs)
+function pcapEntity::SetSize(mins, maxs) this.CBaseEntity.SetSize(mins, maxs)
+
+// KeyValues manipulation
+function pcapEntity::__KeyValueFromInt(key, value) return this.CBaseEntity.__KeyValueFromInt(key, value)
+function pcapEntity::__KeyValueFromFloat(key, value) return this.CBaseEntity.__KeyValueFromFloat(key, value)
+function pcapEntity::__KeyValueFromString(key, value) return this.CBaseEntity.__KeyValueFromString(key, value)
+function pcapEntity::__KeyValueFromVector(key, value) return this.CBaseEntity.__KeyValueFromVector(key, value)
+
+// Hierarchy & Movement relations
+function pcapEntity::FirstMoveChild() return this.CBaseEntity.FirstMoveChild()
+function pcapEntity::GetMoveParent() return this.CBaseEntity.GetMoveParent()
+function pcapEntity::GetRootMoveParent() return this.CBaseEntity.GetRootMoveParent()
+function pcapEntity::NextMovePeer() return this.CBaseEntity.NextMovePeer()
+function pcapEntity::GetOwner() return this.CBaseEntity.GetOwner()
+function pcapEntity::SetOwner(ent) this.CBaseEntity.SetOwner(ent)
+
+// State & Game
+function pcapEntity::GetPreTemplateName() return this.CBaseEntity.GetPreTemplateName()
+function pcapEntity::GetTeam() return this.CBaseEntity.GetTeam()
+function pcapEntity::SetTeam(team) this.CBaseEntity.SetTeam(team)
+function pcapEntity::GetSoundDuration(soundName, actorModel = "") return this.CBaseEntity.GetSoundDuration(soundName, actorModel)
+
+// Transform & Velocity
+function pcapEntity::GetVelocity() return this.CBaseEntity.GetVelocity()
+function pcapEntity::SetAngularVelocity(pitch, yaw, roll) this.CBaseEntity.SetAngularVelocity(pitch, yaw, roll)
 ::entLib <- class {
     /*
      * Creates an entity of the specified classname with the provided keyvalues.
@@ -2105,7 +1106,18 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity} - The created entity object.
     */
     function CreateByClassname(classname, keyvalues = {}) {
+        // Validate parameters
+        if (typeof classname != "string")
+            throw("CreateByClassname: 'classname' must be a string, got " + typeof classname)
+        if (classname == "")
+            throw("CreateByClassname: 'classname' cannot be an empty string")
+        if (typeof keyvalues != "table")
+            throw("CreateByClassname: 'keyvalues' must be a table, got " + typeof keyvalues)
+
         local new_entity = entLib.FromEntity(Entities.CreateByClassname(classname))
+        if (!new_entity)
+            throw("CreateByClassname: Failed to create entity with classname '" + classname + "'")
+
         foreach(key, value in keyvalues) {
             new_entity.SetKeyValue(key, value)
         }
@@ -2127,7 +1139,26 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity} - The created prop entity object.
     */
     function CreateProp(classname, origin, modelname, activity = 1, keyvalues = {}) {
-        local new_entity = entLib.FromEntity(CreateProp(classname, origin, modelname, activity))
+        // Validate parameters
+        if (typeof classname != "string")
+            throw("CreateProp: 'classname' must be a string, got " + typeof classname)
+        if (classname == "")
+            throw("CreateProp: 'classname' cannot be an empty string")
+        if (typeof origin != "Vector")
+            throw("CreateProp: 'origin' must be a Vector, got " + typeof origin)
+        if (typeof modelname != "string")
+            throw("CreateProp: 'modelname' must be a string, got " + typeof modelname)
+        if (modelname == "")
+            throw("CreateProp: 'modelname' cannot be an empty string")
+        if (typeof activity != "integer" && typeof activity != "float")
+            throw("CreateProp: 'activity' must be a number, got " + typeof activity)
+        if (typeof keyvalues != "table")
+            throw("CreateProp: 'keyvalues' must be a table, got " + typeof keyvalues)
+
+        local new_entity = entLib.FromEntity(::CreateProp(classname, origin, modelname, activity))
+        if (!new_entity)
+            throw("CreateProp: Failed to create prop with classname '" + classname + "' and model '" + modelname + "'")
+
         foreach(key, value in keyvalues) {
             new_entity.SetKeyValue(key, value)
         }
@@ -2145,8 +1176,13 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity} - The wrapped entity object.
     */
     function FromEntity(CBaseEntity) {
-        if(typeof CBaseEntity == "pcapEntity")
+        if (CBaseEntity == null)
+            return null
+        if (typeof CBaseEntity == "pcapEntity")
             return CBaseEntity
+        if (typeof CBaseEntity != "instance")
+            throw("FromEntity: Expected CBaseEntity instance or pcapEntity, got " + typeof CBaseEntity)
+        
         return entLib.__init(CBaseEntity)
     }
 
@@ -2159,8 +1195,19 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByClassname(classname, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof classname != "string")
+            throw("FindByClassname: 'classname' must be a string, got " + typeof classname)
+        if (classname == "")
+            throw("FindByClassname: 'classname' cannot be an empty string")
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByClassname: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindByClassname(start_ent, classname)
         return entLib.__init(new_entity)
     }
@@ -2176,8 +1223,25 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByClassnameWithin(classname, origin, radius, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof classname != "string")
+            throw("FindByClassnameWithin: 'classname' must be a string, got " + typeof classname)
+        if (classname == "")
+            throw("FindByClassnameWithin: 'classname' cannot be an empty string")
+        if (typeof origin != "Vector")
+            throw("FindByClassnameWithin: 'origin' must be a Vector, got " + typeof origin)
+        if (typeof radius != "integer" && typeof radius != "float")
+            throw("FindByClassnameWithin: 'radius' must be a number, got " + typeof radius)
+        if (radius <= 0)
+            throw("FindByClassnameWithin: 'radius' must be greater than zero, got " + radius)
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByClassnameWithin: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindByClassnameWithin(start_ent, classname, origin, radius)
         return entLib.__init(new_entity)
     }
@@ -2191,8 +1255,19 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByName(targetname, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof targetname != "string")
+            throw("FindByName: 'targetname' must be a string, got " + typeof targetname)
+        if (targetname == "")
+            throw("FindByName: 'targetname' cannot be an empty string")
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByName: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindByName(start_ent, targetname)
         return entLib.__init(new_entity)
     }
@@ -2208,8 +1283,25 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByNameWithin(targetname, origin, radius, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof targetname != "string")
+            throw("FindByNameWithin: 'targetname' must be a string, got " + typeof targetname)
+        if (targetname == "")
+            throw("FindByNameWithin: 'targetname' cannot be an empty string")
+        if (typeof origin != "Vector")
+            throw("FindByNameWithin: 'origin' must be a Vector, got " + typeof origin)
+        if (typeof radius != "integer" && typeof radius != "float")
+            throw("FindByNameWithin: 'radius' must be a number, got " + typeof radius)
+        if (radius <= 0)
+            throw("FindByNameWithin: 'radius' must be greater than zero, got " + radius)
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByNameWithin: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindByNameWithin(start_ent, targetname, origin, radius)
         return entLib.__init(new_entity)
     }
@@ -2223,8 +1315,19 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByModel(model, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof model != "string")
+            throw("FindByModel: 'model' must be a string, got " + typeof model)
+        if (model == "")
+            throw("FindByModel: 'model' cannot be an empty string")
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByModel: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindByModel(start_ent, model)
         return entLib.__init(new_entity)
     }
@@ -2240,8 +1343,25 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindByModelWithin(model, origin, radius, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof model != "string")
+            throw("FindByModelWithin: 'model' must be a string, got " + typeof model)
+        if (model == "")
+            throw("FindByModelWithin: 'model' cannot be an empty string")
+        if (typeof origin != "Vector")
+            throw("FindByModelWithin: 'origin' must be a Vector, got " + typeof origin)
+        if (typeof radius != "integer" && typeof radius != "float")
+            throw("FindByModelWithin: 'radius' must be a number, got " + typeof radius)
+        if (radius <= 0)
+            throw("FindByModelWithin: 'radius' must be greater than zero, got " + radius)
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindByModelWithin: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = null
         for(local ent; ent = Entities.FindByClassnameWithin(ent, "*", origin, radius);) {
             if(ent.GetModelName() == model && ent != start_ent) {
@@ -2263,25 +1383,37 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {pcapEntity|null} - The found entity object, or null if not found.
     */
     function FindInSphere(origin, radius, start_ent = null) {
-        if(start_ent && typeof start_ent == "pcapEntity")
-            start_ent = start_ent.CBaseEntity
+        // Validate parameters
+        if (typeof origin != "Vector")
+            throw("FindInSphere: 'origin' must be a Vector, got " + typeof origin)
+        if (typeof radius != "integer" && typeof radius != "float")
+            throw("FindInSphere: 'radius' must be a number, got " + typeof radius)
+        if (radius <= 0)
+            throw("FindInSphere: 'radius' must be greater than zero, got " + radius)
+        
+        if (start_ent != null) {
+            if (typeof start_ent == "pcapEntity")
+                start_ent = start_ent.CBaseEntity
+            else if (typeof start_ent != "instance")
+                throw("FindInSphere: 'start_ent' must be a CBaseEntity or pcapEntity, got " + typeof start_ent)
+        }
+
         local new_entity = Entities.FindInSphere(start_ent, origin, radius)
         return entLib.__init(new_entity)
     }
-
 
 
     /* 
      * Initializes an entity object.
      *
      * @param {CBaseEntity} entity - The entity object.
-     * @returns {pcapEntity} - A new entity object.
+     * @returns {pcapEntity|null} - A new entity object or null if invalid.
     */
     function __init(CBaseEntity) {
-        if(!CBaseEntity || !CBaseEntity.IsValid())
+        if (!CBaseEntity || !CBaseEntity.IsValid())
             return null
 
-        if(CBaseEntity in pcapEntityCache) {
+        if (CBaseEntity in pcapEntityCache) {
             return pcapEntityCache[CBaseEntity]
         } else {
             local pcapEnt = pcapEntity(CBaseEntity)
@@ -2297,7 +1429,6 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
 ::ArrayEx <- class {
     // The internal array. 
     arr = null
-    length = 0;
     
     // The internal table representation. 
     table = null;
@@ -2328,9 +1459,12 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {ArrayEx} - The newly created or the input ArrayEx object.
     */
     function FromArray(array) {
-        if(typeof array == "ArrayEx") // dumb-ass protection :P
+        // if it's already an ArrayEx, just return it.
+        if(typeof array == "ArrayEx")
             return array
         
+        if(typeof array != "array") throw("ArrayEx.FromArray: Invalid argument. This function only accepts a standard 'array' for conversion. Got type '" + typeof array + "' instead.")
+
         local arrayEx = ArrayEx()
         arrayEx.arr = array
         return arrayEx
@@ -2367,7 +1501,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function apply(func) {
         foreach(idx, value in arr) {
-            arr[idx] = func(value)
+            arr[idx] = func(value, idx)
         }
         this.totable(true)
         return this
@@ -2425,7 +1559,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function contains(match) { 
         if(!this.tableIsValid) this.totable()
-        return match in this.table
+        return match.tostring() in this.table
     }
 
     /*
@@ -2436,13 +1570,13 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function search(match) {
         if(typeof match == "function") {
-            foreach(idx, val in arr) {
+            foreach(idx, val in this.arr) {
                 if(match(val))
                     return idx
             }
         }
         else {
-            foreach(idx, val in arr) {
+            foreach(idx, val in this.arr) {
                 if(val == match)
                     return idx
             }
@@ -2456,10 +1590,12 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * 
      * @param {int} idx - The index to insert at.
      * @param {any} val - The value to insert.
+     * @returns {ArrayEx} - The ArrayEx instance for chaining.
     */
     function insert(idx, val) {
         this._pushToTable(val)
-        return arr.insert(idx, val)
+        arr.insert(idx, val)
+        return this
     }
 
     /*
@@ -2478,9 +1614,10 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {ArrayEx} - The mapped array.
     */
     function map(func) {
+        if(typeof func != "function") throw("ArrayEx.map: The 'func' argument must be a function, but got " + typeof func);
         local newArray = array(this.len())
         foreach(idx, value in arr) {
-            newArray[idx] = func(value)
+            newArray[idx] = func(value, idx)
         }
         return ArrayEx.FromArray(newArray)
     }
@@ -2510,6 +1647,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
         local result = ArrayEx()
         
         foreach(value in this.arr) {
+            value = value.tostring()
             if(value in seen) continue
             seen[value] <- true    
             result.append(value)
@@ -2533,9 +1671,11 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * Append a value to the array.
      * 
      * @param {any} val - The value to append.
+     * @returns {ArrayEx} - The ArrayEx instance for chaining.
     */
     function push(val) {
         this.append(val)
+        return this
     }
 
     /*
@@ -2560,6 +1700,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     function resize(size, fill = null) {
         arr.resize(size, fill);
         this.totable(true)
+        return this
     }
 
     /*
@@ -2644,7 +1785,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
         tableIsValid = true
         this.table.clear()
         foreach(element in arr) {
-            if(element) this.table[element] <- null
+            if(element != null) this.table[element.tostring()] <- null
         }
         return this.table
     }
@@ -2674,11 +1815,10 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function _pushToTable(val) {
         if(this.table.len() != 0)
-            this.table[val] <- null
+            this.table[val.tostring()] <- null
     }
 
-
-    function _cloned() {
+    function Clone() {
         return ArrayEx.FromArray(clone this.arr)
     }
 
@@ -2712,44 +1852,28 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function _set(idx, val) return arr[idx] = val;
 
+    function _cloned() return this.Clone()
+
 
     function _nexti(previdx) {
-        if(this.len() == 0) return null
+        if(this.arr.len() == 0) return null
         if (previdx == null) return 0;
-		return previdx < this.len() - 1 ? previdx + 1 : null;
+		return previdx < this.arr.len() - 1 ? previdx + 1 : null;
 	}
-
-    function cmp(other) { // lmao, why? :O
-        local thisSum = 0;
-        local otherSum = 0;
-        foreach (val in this) { thisSum += val; }
-        foreach (val in other) { otherSum += val; }
-
-    
-        if (thisSum > otherSum) {
-            return 1;
-        } else if (thisSum < otherSum) {
-            return -1;
-        } else {
-            return 0; 
-        }
-    }
 }
+::__listnodetostring <- function () {return this.value.tostring()}
 ::ListNode <- function(value) return {
     value = value,
-    prev_ref = null,
-    next_ref = null,
+    _prevRef = null,
+    _nextRef = null,
 
-    tostring = function () {
-        return this.value.tostring();
-    }
+    tostring = __listnodetostring
 } 
 
-//! Deleting nodes should cause a leak!
 ::List <- class {
     length = 0;
-    first_node = null;
-    last_node = null;
+    firstNode = null;
+    lastNode = null;
 
     /*
      * Constructor for a list.
@@ -2757,8 +1881,8 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @param {...any} vargv - The initial values to add to the list.
     */
     constructor(...) {
-        this.first_node = ListNode(0);
-        this.last_node = this.first_node;
+        this.firstNode = ListNode(null);
+        this.lastNode = this.firstNode;
         
         for(local i = 0; i < vargc; i++) {
             this.append(vargv[i])
@@ -2772,6 +1896,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {List} - The new list containing the elements from the array.
     */
     function FromArray(array) {
+        if(typeof array != "array") throw("Expected array, got " + typeof array)
         local list = List()
         foreach(val in array) 
             list.append(val)
@@ -2791,16 +1916,18 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * Appends a value to the end of the list.
      * 
      * @param {any} value - The value to append.
+     * @returns {List} - The List instance for chaining.
     */
     function append(value) {
         local next_node = ListNode(value);
-        local current_node = this.last_node;
+        local current_node = this.lastNode;
 
-        current_node.next_ref = next_node;
-        next_node.prev_ref = current_node;
+        current_node._nextRef = next_node;
+        next_node._prevRef = current_node;
 
-        this.last_node = next_node;
+        this.lastNode = next_node;
         this.length++;
+        return this
     }
 
     /*
@@ -2808,21 +1935,22 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * 
      * @param {number} index - The index to insert the value at.
      * @param {any} value - The value to insert.
+     * @returns {List} - The List instance for chaining.
     */
     function insert(idx, value) {
         if(this.length == 0 || idx >= this.length) 
             return this.append(value)
-    
         local node = this.getNode(idx)
         local newNode = ListNode(value)
 
-        newNode.next_ref = node
-        newNode.prev_ref = node.prev_ref
+        newNode._nextRef = node
+        newNode._prevRef = node._prevRef
         
-        node.prev_ref.next_ref = newNode 
-        node.prev_ref = newNode
+        node._prevRef._nextRef = newNode 
+        node._prevRef = newNode
 
         this.length++
+        return this
     }
 
     /*
@@ -2833,13 +1961,25 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @throws {Error} - If the index is out of bounds.
     */
     function getNode(idx) {
-        if (idx >= this.length) {
+        if (idx >= this.length || idx < 0) {
             throw("the index '" + idx + "' does not exist!");
         }
 
-        local node = this.first_node.next_ref;
-        for (local i = 0; i < idx; i++) {
-            node = node.next_ref;
+        // If the index is in the first half, we search from the beginning
+        if (idx < this.length / 2) {
+            local node = this.firstNode._nextRef;
+            for (local i = 0; i < idx; i++) {
+                node = node._nextRef;
+            }
+            return node;
+        } 
+        // Otherwise, we search from the end
+        else {
+            local node = this.lastNode;
+            for (local i = this.length - 1; i > idx; i--) {
+                node = node._prevRef;
+            }
+            return node;
         }
         return node;
     }
@@ -2867,20 +2007,22 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     function remove(idx) {
         local node = this.getNode(idx);
         local value = node.value
-        local next = node.next_ref;
-        local prev = node.prev_ref;
-        // node.drop();
+        local next = node._nextRef;
+        local prev = node._prevRef;
+        
+        node._nextRef = null;
+        node._prevRef = null;
 
         if (prev) {
-            prev.next_ref = next; 
+            prev._nextRef = next; 
         } else {
-            this.first_node.next_ref = next;
+            this.firstNode._nextRef = next;
         }
     
         if (next) {
-            next.prev_ref = prev;
+            next._prevRef = prev;
         } else { 
-            this.last_node = prev; 
+            this.lastNode = prev; 
         } 
 
         this.length--;
@@ -2893,9 +2035,11 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {any} - The value of the removed element.
     */
     function pop() {
-        local current = this.last_node;
-        this.last_node = current.prev_ref;
-        this.last_node.next_ref = null;
+        if(this.length == 0) throw("pop() on a empty list")
+
+        local current = this.lastNode;
+        this.lastNode = current._prevRef;
+        this.lastNode._nextRef = null;
         this.length--
         // current.drop()
         return current.value;
@@ -2908,34 +2052,44 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function top() {
         if(this.length == 0) throw("top() on a empty list")
-        return this.last_node.value
+        return this.lastNode.value
     }
 
     function first() {
         if(this.length == 0) throw("first() on a empty list")
-        return this.first_node.next_ref.value
+        return this.firstNode._nextRef.value
     }
 
     /*
      * Reverses the order of the elements in the list in-place.
+     * @returns {List} - The List instance for chaining.
     */
     function reverse() {
-        local prev_node = null;
-        local current_node = this.first_node.next_ref;
+        if (this.length <= 1) return this;
 
-        while (current_node) {
-            local next_node = current_node.next_ref;
+        local new_tail = this.firstNode._nextRef;
+        local new_head = this.lastNode;
 
-            current_node.next_ref = prev_node;
-            current_node.prev_ref = next_node;
+        local current = this.firstNode._nextRef;
+        local prev = this.firstNode; 
 
-            prev_node = current_node;
-            current_node = next_node;
+        while (current) {
+            local next = current._nextRef; 
+            
+            current._nextRef = prev;
+            current._prevRef = next;
+
+            prev = current;
+            current = next;
         }
 
-        local temp = this.first_node.next_ref;
-        this.first_node.next_ref = prev_node;
-        this.last_node = temp;
+        this.firstNode._nextRef = new_head;
+        new_head._prevRef = this.firstNode;
+
+        this.lastNode = new_tail;
+        this.lastNode._nextRef = null; 
+
+        return this;
     }
 
     /*
@@ -2946,7 +2100,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {List} - The sliced list.
     */
     function slice(startIndex, endIndex = null) {
-        if(!endIndex) endIndex = this.len()
+        if(endIndex == null) endIndex = this.len()
 
         local result = List()
         foreach(idx, value in this.iter()) {
@@ -2961,52 +2115,60 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * 
      * @param {int} size - The new size.
      * @param {any} fill - The fill value for new slots.
+     * @returns {List} - The List instance for chaining.
     */
     function resize(size, fill = null) {
+        if(size < 0) throw("Size cannot be negative.")
         local diff = size - this.len()
         
         if(diff > 0) {
             // Add elements
             for(local i = 0; i < diff; i++)
                 this.append(fill)
-            return
+            return this
         }
 
         // Remove elements
         for (local i = 0; i < -diff; i++)
             this.pop();
+        return this
     }
 
+    /*
+     * Sorts the list in ascending order using merge sort.
+     *
+     * @returns {List} - The List instance for chaining.
+    */
     function sort() {
-        this.first_node.next_ref = _mergeSort(this.first_node.next_ref)
+        this.firstNode._nextRef = _mergeSort(this.firstNode._nextRef)
         
-        // Update prev_ref and next_ref links after sorting
-        local current = this.first_node.next_ref;
-        local previous = null;
+        // Update _prevRef and _nextRef links after sorting
+        local current = this.firstNode._nextRef;
+        local previous = this.firstNode;
         while (current) {
-            current.prev_ref = previous;
+            current._prevRef = previous;
             if (previous) {
-                previous.next_ref = current; 
+                previous._nextRef = current; 
             }
             previous = current; 
-            current = current.next_ref; 
+            current = current._nextRef; 
         } 
 
-        // Update last_node to point to the last node after sorting 
-        this.last_node = previous; 
+        // Update lastNode to point to the last node after sorting 
+        this.lastNode = previous; 
         
         return this
     }
 
     function _mergeSort(head) {
-        if (head == null || head.next_ref == null) {
+        if (head == null || head._nextRef == null) {
             return head  // List with one or zero elements already sorted
         }
     
         // Splitting the list into two parts
         local middle = _findMiddleNode(head)
-        local nextToMiddle = middle.next_ref 
-        middle.next_ref = null 
+        local nextToMiddle = middle._nextRef 
+        middle._nextRef = null 
     
         // Recursive sorting of two halves
         local left = _mergeSort(head)
@@ -3019,10 +2181,10 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     
     function _findMiddleNode(head) {
         local slow = head
-        local fast = head.next_ref
-        while (fast != null && fast.next_ref != null) {
-            slow = slow.next_ref
-            fast = fast.next_ref.next_ref 
+        local fast = head._nextRef
+        while (fast != null && fast._nextRef != null) {
+            slow = slow._nextRef
+            fast = fast._nextRef._nextRef 
         }
         return slow 
     }
@@ -3034,77 +2196,50 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     
         while (left != null && right != null) {
             if (left.value <= right.value) {
-                current.next_ref = left
-                left = left.next_ref 
+                current._nextRef = left
+                left = left._nextRef 
             } else {
-                current.next_ref = right
-                right = right.next_ref 
+                current._nextRef = right
+                right = right._nextRef 
             } 
-            current = current.next_ref
+            current = current._nextRef
         } 
     
         // Add the remaining elements
-        current.next_ref = left != null ? left : right
+        current._nextRef = left != null ? left : right
     
-        return dummyHead.next_ref 
+        return dummyHead._nextRef 
     }
 
     function SwapNode(node1, node2) {
-        if (node1 == node2) return
-    
-        //  Update references of previous nodes
-        if (node1.prev_ref) {
-            node1.prev_ref.next_ref = node2
-        } else {
-            this.first_node = node2
-        }
-    
-        if (node2.prev_ref) {
-            node2.prev_ref.next_ref = node1
-        } else {
-            this.first_node = node1
-        }
-    
-        //  Update links for the following nodes
-        if (node1.next_ref) {
-            node1.next_ref.prev_ref = node2
-        } else {
-            this.last_node = node2
-        }
-    
-        if (node2.next_ref) {
-            node2.next_ref.prev_ref = node1
-        } else {
-            this.last_node = node1
-        }
-    
-        //  Exchange the `prev_ref` and `next_ref` references of the nodes themselves
-        local temp = node1.prev_ref
-        node1.prev_ref = node2.prev_ref
-        node2.prev_ref = temp
-    
-        temp = node1.next_ref
-        node1.next_ref = node2.next_ref
-        node2.next_ref = temp
+        if (node1 == node2) return;
+        
+        local t = node1.value
+        node1.value = node2.value
+        node2.value = t;
     }
 
 
     /*
      * Removes all elements from the list.
+     * @returns {List} - The List instance for chaining.
     */
     function clear() {
         if(this.length == 0) return
         
-        local current = this.first_node.next_ref;
+        local current = this.firstNode._nextRef;
         while (current) {
-            local next_node = current.next_ref;
-            // current.drop()
+            local next_node = current._nextRef;
+            current._prevRef = null;
+            current._nextRef = null;
+
             current = next_node;
         }
 
-        this.first_node.next_ref = null;
-        this.last_node = this.first_node;
+        this.firstNode._nextRef = null;
+        this.lastNode = this.firstNode;
         this.length = 0;
+        return this
     }
 
     /*
@@ -3112,10 +2247,12 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function iter() {
         if(this.length == 0) return
-        local current = this.first_node.next_ref;
+        local current = this.firstNode._nextRef;
+        local next;
         while (current) {
+            next = current._nextRef
             yield current.value
-            current = current.next_ref;
+            current = next;
         }
     }
 
@@ -3123,10 +2260,10 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * Similar to `iter`, but returns the node instead of the node's value.
     */
     function rawIter() {
-        local current = this.first_node.next_ref;
+        local current = this.firstNode._nextRef;
         while (current) {
             yield current
-            current = current.next_ref;
+            current = current._nextRef;
         }
     }
 
@@ -3155,7 +2292,7 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     */
     function apply(func) {
         foreach(idx, value in this.iter()) {
-            this[idx] = func(value)
+            this[idx] = func(value, idx)
         }
         return this
     }
@@ -3167,11 +2304,18 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {List} - The List instance for chaining.
     */
     function extend(other) {
-        //! TODO BRUH!!!
-        foreach(val in other) 
+        local iter = typeof other == "List" ? other.iter() : other
+        foreach(val in iter) 
             this.append(val)
         return this
     }
+
+    // function _unsafeFastExtend(otherLis) { // todo for actions
+    //     this.lastNode._nextRef = otherLis.firstNode._nextRef
+    //     otherLis.firstNode._nextRef._prevRef = this.lastNode
+    //     this.lastNode = otherLis.firstNode._nextRef
+    //     return this
+    // }
 
     /*
      * Searches for a value or a matching element in the list.
@@ -3221,9 +2365,10 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
      * @returns {List} - The new list with the mapped values.
     */
     function map(func) {
+        if(typeof func != "function") throw("List.map: The 'func' argument must be a function, but got " + typeof func);
         local newList = List()
-        foreach(value in this.iter()) {
-            newList.append(func(value))
+        foreach(idx, value in this.iter()) {
+            newList.append(func(value, idx))
         }
         return newList
     }
@@ -3267,7 +2412,8 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
     function totable() {
         local table = {}
         foreach(element in this.iter()) {
-            if(element) table[element] <- null
+            if(element != null) // null can't be the key 
+                table[element] <- null
         }
         return table
     }
@@ -3293,24 +2439,28 @@ function pcapEntity::SetVelocity(vector) this.CBaseEntity.SetVelocity(vector)
 
     //* OUTDATED! The standard iterator, it's terrible! Use `.iter()` method
     function _nexti(previdx) {
-        if(this.len() == 0) return null
-        if (previdx == null) return 0;
-        return previdx < this.len() - 1 ? previdx + 1 : null;
-    }
-
-    function _cmp(other) { // lmao, why? :O
-        local thisSum = 0;
-        local otherSum = 0;
-        foreach (val in this.iter()) { thisSum += val.value; }
-        foreach (val in other) { otherSum += val.value; }
-
-        if (thisSum > otherSum) {
-            return 1;
-        } else if (thisSum < otherSum) {
-            return -1;
-        } else {
-            return 0; 
+        local callstack = "\nCallstack:\n"
+        // Start at level 2 to skip this _nexti function and the internal VM call.
+        for (local level = 2; ; level++) {
+            local info = getstackinfos(level)
+            // Stop when we've gone through the entire stack.
+            if (info == null) break
+            
+            // Format the information for readability.
+            local source = ("src" in info) ? info.src : "unknown_source"
+            local line = ("line" in info) ? info.line : "?"
+            local func = ("func" in info) ? info.func : "global_scope"
+            
+            callstack += "  at " + source + ":" + line + " in function '" + func + "'\n"
         }
+
+        local errorMessage = "DEPRECATED ITERATION: Standard 'foreach' is not supported for List. " +
+                             "Please use the high-performance '.iter()' method instead.\n\n" +
+                             "Example: foreach (item in yourList.iter()) { ... }" +
+                             callstack
+
+        printl(errorMessage)
+        throw(errorMessage)
     }
 }
 /*
@@ -3761,6 +2911,1481 @@ if(("dissolver" in getroottable()) == false) {
 |                           PCapture Vscripts Library                              |
 +----------------------------------------------------------------------------------+
 | Author:                                                                          |
+|     Visionary Mathematician - laVashik :O                                        |
++----------------------------------------------------------------------------------+
+|    The core mathematical module, providing essential functions and objects for   |
+|    performing calculations, transformations, and interpolations in VScripts.     |
++----------------------------------------------------------------------------------+ */
+
+::math <- {}
+
+/*
+ * Finds the minimum value among the given arguments.
+ *
+ * @param {...number} vargv - The numbers to compare.
+ * @returns {number} - The minimum value.
+*/
+math["min"] <- function(...) {
+    if (vargc == 0) throw("math.min: no arguments");
+    local min = vargv[0]
+    for(local i = 0; i< vargc; i++) {
+        if(min > vargv[i])
+            min = vargv[i]
+    }
+    
+    return min
+}
+
+
+/*
+ * Finds the maximum value among the given arguments.
+ *
+ * @param {...number} vargv - The numbers to compare.
+ * @returns {number} - The maximum value.
+*/
+math["max"] <- function(...) {
+    if (vargc == 0) throw("math.max: no arguments");
+    local max = vargv[0]
+    for(local i = 0; i< vargc; i++) {
+        if(vargv[i] > max)
+            max = vargv[i]
+    }
+
+    return max
+}
+
+
+/*
+ * Clamps a number within the specified range.
+ *
+ * @param {number} number - The number to clamp.
+ * @param {number} min - The minimum value.
+ * @param {number} max - The maximum value (optional).
+ * @returns {number} - The clamped value.
+*/
+math["clamp"] <- function(number, min, max = 99999) { 
+    if ( number < min ) return min;
+    if ( number > max ) return max;
+    return number
+}
+
+
+/*
+ * Rounds a number to the specified precision.
+ *
+ * @param {number} value - The number to round.
+ * @param {int} precision - The precision (e.g., 1000 for rounding to three decimal places).
+ * @returns {number} - The rounded value.
+*/
+math["round"] <- function(value, precision = 1) {
+    return floor(value * precision + 0.5) / precision
+}
+
+
+/*
+ * Returns the sign of a number.
+ *
+ * @param {number} x - The number.
+ * @returns {number} - The sign of the number (-1, 0, or 1).
+*/
+math["Sign"] <- function(x) {
+    if (x > 0) {
+        return 1;
+    } else if (x < 0) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+
+/*
+ * Copies the sign of one value to another.
+ *
+ * @param {number} value - The value to copy the sign to.
+ * @param {number} sign - The sign to copy.
+ * @returns {number} - The value with the copied sign.
+*/
+math["copysign"] <- function(value, sign) {
+    local mag = value < 0 ? -value : value;
+    return (sign < 0) ? -mag : mag;
+}
+
+
+/*
+ * Remaps a value from the range [A, B] to the range [C, D].
+ *
+ * If A is equal to B, the value will be clamped to C or D depending on its relationship to B.
+ *
+ * @param {number} value - The value to remap.
+ * @param {number} A - The start of the input range.
+ * @param {number} B - The end of the input range.
+ * @param {number} C - The start of the output range.
+ * @param {number} D - The end of the output range.
+ * @returns {number} - The remapped value.
+*/
+math["RemapVal"] <- function( value, A, B, C, D )
+{
+    if ( A == B )
+    {
+        if ( value >= B )
+            return D;
+        return C;
+    };
+    return C + (D - C) * (value - A) / (B - A);
+}   
+math["vector"] <- {}
+local mVector = math["vector"]
+
+/*
+ * Checks if two vectors are approximately equal, within a certain precision.
+ * This function rounds the components of both vectors before comparing them.
+ *
+ * @param {Vector} vector - The first vector.
+ * @param {Vector} other - The second vector.
+ * @param {int} precision - The precision factor (e.g., 1000 for rounding to three decimal places).
+ * @returns {boolean} - True if the vectors are approximately equal, false otherwise.
+*/
+mVector["IsEqual"] <- function(vector, other, precision = 1000) {
+    vector = math.vector.round(vector, precision)
+    other = math.vector.round(other, precision)
+    return vector.x == other.x && 
+            vector.y == other.y && 
+            vector.z == other.z
+}
+
+
+/*
+ * Compares two vectors based on their lengths.
+ *
+ * @param {Vector} vector - The first vector.
+ * @param {Vector} other - The second vector.
+ * @returns {int} - 1 if the first vector is longer, -1 if the second vector is longer, and 0 if they have equal lengths.
+*/mVector["cmp"] <- function(vector, other) {
+    local l1 = vector.Length()
+    local l2 = other.Length()
+    if(l1 > l2) return 1
+    if(l1 < l2) return -1
+    return 0
+}
+
+
+/*
+ * Performs element-wise multiplication of two vectors.
+ *
+ * @param {Vector} vector - The first vector.
+ * @param {Vector} other - The second vector.
+ * @returns {Vector} - A new vector with the result of the element-wise multiplication.
+*/
+mVector["mul"] <- function(vector, other) {
+    return Vector(vector.x * other.x, vector.y * other.y, vector.z * other.z)
+}
+
+/*
+ * Rotates a vector by a given angle.
+ *
+ * @param {Vector} vector - The vector to rotate.
+ * @param {Vector} angle - The Euler angles in degrees (pitch, yaw, roll) representing the rotation.
+ * @returns {Vector} - The rotated vector. 
+*/
+mVector["rotate"] <- function(vector, angle) {
+    return math.Quaternion.fromEuler(angle).rotateVector(vector)
+}
+
+/*
+ * Un-rotates a vector by a given angle.
+ *
+ * @param {Vector} vector - The vector to un-rotate.
+ * @param {Vector} angle - The Euler angles in degrees (pitch, yaw, roll) representing the rotation to reverse.
+ * @returns {Vector} - The un-rotated vector.
+*/
+mVector["unrotate"] <- function(vector, angle) {
+    return math.Quaternion.fromEuler(angle).unrotateVector(vector)
+}
+
+/*
+ * Generates a random vector within the specified range.
+ *
+ * If `min` and `max` are both vectors, each component of the resulting vector will be a random value between the corresponding components of `min` and `max`.
+ * If `min` and `max` are numbers, all components of the resulting vector will be random values between `min` and `max`.
+ *
+ * @param {Vector|number} min - The minimum values for each component or a single minimum value for all components.
+ * @param {Vector|number} max - The maximum values for each component or a single maximum value for all components.
+ * @returns {Vector} - The generated random vector.
+*/
+mVector["random"] <- function(min, max) {
+    if(typeof min == "Vector" && typeof max == "Vector") 
+        return Vector(RandomFloat(min.x, max.x), RandomFloat(min.y, max.y), RandomFloat(min.z, max.z))
+    return Vector(RandomFloat(min, max), RandomFloat(min, max), RandomFloat(min, max))
+}
+
+/*
+ * Reflects a direction vector off a surface with a given normal.
+ *
+ * @param {Vector} dir - The direction vector to reflect.
+ * @param {Vector} normal - The normal vector of the surface.
+ * @returns {Vector} - The reflected direction vector.
+*/
+mVector["reflect"] <- function(dir, normal) {
+    return dir - normal * (dir.Dot(normal) * 2)
+}
+
+/*
+ * Clamps the components of a vector within the specified range.
+ *
+ * @param {Vector} vector - The vector to clamp.
+ * @param {number} min - The minimum value for each component.
+ * @param {number} max - The maximum value for each component.
+ * @returns {Vector} - The clamped vector.
+*/
+mVector["clamp"] <- function(vector, min = 0, max = 255) {
+    return Vector(math.clamp(vector.x, min, max), math.clamp(vector.y, min, max), math.clamp(vector.z, min, max)) 
+}
+
+/*
+ * Resizes a vector to a new length while maintaining its direction.
+ *
+ * @param {Vector} vector - The vector to resize.
+ * @param {number} newLength - The desired new length of the vector.
+ * @returns {Vector} - The resized vector with the specified length.
+*/
+mVector["resize"] <- function(vector, newLength) {
+    local currentLength = vector.Length()
+    return vector * (newLength / currentLength)
+}
+
+/*
+ * Rounds the elements of a vector to the specified precision.
+ *
+ * @param {Vector} vec - The vector to round.
+ * @param {int} precision - The precision (e.g., 1000 for rounding to three decimal places).
+ * @returns {Vector} - The rounded vector.
+*/
+mVector["round"] <- function(vec, precision = 1000) {
+    vec.x = floor(vec.x * precision + 0.5) / precision
+    vec.y = floor(vec.y * precision + 0.5) / precision
+    vec.z = floor(vec.z * precision + 0.5) / precision
+    return vec
+}
+
+/* 
+ * Returns a vector with the signs (-1, 0, or 1) of each component of the input vector.
+ * 
+ * @param {Vector} vec - The input vector.
+ * @returns {Vector} - A new vector with the signs of the input vector's components.
+*/
+mVector["sign"] <- function(vec) {
+    return Vector(math.Sign(vec.x), math.Sign(vec.y), math.Sign(vec.z))
+}
+
+/* 
+ * Calculates the absolute value of each component in a vector.
+ *
+ * @param {Vector} vector - The vector to calculate the absolute values for.
+ * @returns {Vector} - A new vector with the absolute values of the original vector's components.
+*/
+mVector["abs"] <- function(vector) {
+    return Vector(::abs(vector.x), ::abs(vector.y), ::abs(vector.z)) 
+}
+
+math["lerp"] <- {}
+local lerp = math["lerp"]
+
+
+/*
+ * Performs linear interpolation (lerp) between start and end based on the parameter t.
+ *
+ * @param {number} start - The starting value.
+ * @param {number} end - The ending value.
+ * @param {number} t - The interpolation parameter.
+ * @returns {number} - The interpolated value.
+*/
+lerp["number"] <- function(start, end, t) {
+    return start * (1 - t) + end * t;
+}
+
+
+/*
+ * Performs linear interpolation (lerp) between two vectors.
+ *
+ * @param {Vector} start - The starting vector.
+ * @param {Vector} end - The ending vector.
+ * @param {number} t - The interpolation parameter.
+ * @returns {Vector} - The interpolated vector.
+*/
+lerp["vector"] <- function(start, end, t) {
+    return Vector(math.lerp.number(start.x, end.x, t), math.lerp.number(start.y, end.y, t), math.lerp.number(start.z, end.z, t));
+}
+
+
+/*
+ * Performs linear interpolation (lerp) between two colors.
+ *
+ * @param {Vector|string} start - The starting color vector or string representation (e.g., "255 0 0").
+ * @param {Vector|string} end - The ending color vector or string representation.
+ * @param {number} t - The interpolation parameter.
+ * @returns {string} - The interpolated color string representation (e.g., "128 64 0").
+*/
+lerp["color"] <- function(start, end, t) {
+    if (type(start) == "string") {
+        start = macros.StrToVec(start)
+    }
+    if (type(end) == "string") {
+        end = macros.StrToVec(end)
+    }
+
+    return floor(math.lerp.number(start.x, end.x, t)) + " " + floor(math.lerp.number(start.y, end.y, t)) + " " + floor(math.lerp.number(start.z, end.z, t))
+}
+
+// SLERP for vector 
+lerp["sVector"] <- function(start, end, t) {
+    local q1 = math.Quaternion.fromEuler(start)
+    local q2 = math.Quaternion.fromEuler(end)
+    return q1.slerp(q2, t).toVector()
+}
+
+/*
+ * Performs smooth interpolation between two values using a smoothstep function.
+ *
+ * @param {number} edge0 - The lower edge of the interpolation range.
+ * @param {number} edge1 - The upper edge of the interpolation range.
+ * @param {number} value - The interpolation parameter.
+ * @returns {number} - The interpolated value.
+*/
+lerp["SmoothStep"] <- function(edge0, edge1, value) {
+    if(edge0 == edge1) return 0
+    local t = math.clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t)
+}
+
+
+/*
+ * Performs linear interpolation between two values.
+ *
+ * @param {number} f1 - The start value.
+ * @param {number} f2 - The end value.
+ * @param {number} i1 - The start interpolation parameter.
+ * @param {number} i2 - The end interpolation parameter.
+ * @param {number} value - The interpolation parameter.
+ * @returns {number} - The interpolated value.
+*/
+lerp["FLerp"] <- function( f1, f2, i1, i2, value ) {
+    if(i1 == i2) return f2
+    return f1 + (f2 - f1) * (value - i1) / (i2 - i1);
+}
+// More info here: https://gizma.com/easing/
+
+math["ease"] <- {}
+local ease = math["ease"]
+
+ease["InSine"] <- function(t) { 
+    return 1 - cos((t * PI) / 2);
+}
+
+ease["OutSine"] <- function(t) { 
+    return sin((t * PI) / 2);
+}
+
+ease["InOutSine"] <- function(t) { 
+    return -(cos(PI * t) - 1) / 2;
+}
+
+ease["InQuad"] <- function(t) { 
+    return t * t; 
+}
+
+ease["OutQuad"] <- function(t) { 
+    return 1 - (1 - t) * (1 - t); 
+}
+
+ease["InOutQuad"] <- function(t) { 
+    return t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2;
+}
+
+ease["InCubic"] <- function(t) { 
+    return t * t * t;
+}
+
+ease["OutCubic"] <- function(t) { 
+    return 1 - pow(1 - t, 3);
+}
+
+ease["InOutCubic"] <- function(t) { 
+    return t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2;
+}
+
+ease["InQuart"] <- function(t) {
+    return t * t * t * t; 
+}
+
+ease["OutQuart"] <- function(t) { 
+    return 1 - pow(1 - t, 4);
+}
+
+ease["InOutQuart"] <- function(t) { 
+    return t < 0.5 ? 8 * t * t * t * t : 1 - pow(-2 * t + 2, 4) / 2;
+}
+
+ease["InQuint"] <- function(t) { 
+    return t * t * t * t * t;
+}
+
+ease["OutQuint"] <- function(t) { 
+    return 1 - pow(1 - t, 5);
+}
+
+ease["InOutQuint"] <- function(t) { 
+    return t < 0.5 ? 16 * t * t * t * t * t : 1 - pow(-2 * t + 2, 5) / 2;
+}
+
+ease["InExpo"] <- function(t) { 
+    return t == 0 ? 0 : pow(2, 10 * t - 10);
+}
+
+ease["OutExpo"] <- function(t) { 
+    return t == 1 ? 1 : 1 - pow(2, -10 * t);
+}
+
+ease["InOutExpo"] <- function(t) { 
+    return t == 0 ? 0 : t == 1 ? 1 : t < 0.5 ? pow(2, 20 * t - 10) / 2 : (2 - pow(2, -20 * t + 10)) / 2;
+}
+
+ease["InCirc"] <- function(t) { 
+    return 1 - sqrt(1 - pow(t, 2));
+}
+
+ease["OutCirc"] <- function(t) { 
+    return sqrt(1 - pow(t - 1, 2));
+}
+
+ease["InOutCirc"] <- function(t) { 
+    return t < 0.5 ? (1 - sqrt(1 - pow(2 * t, 2))) / 2 : (sqrt(1 - pow(-2 * t + 2, 2)) + 1) / 2;
+}
+
+ease["InBack"] <- function(t) { 
+    local c1 = 1.70158;
+    local c3 = c1 + 1;
+    return c3 * t * t * t - c1 * t * t;
+}
+
+ease["OutBack"] <- function(t) { 
+    local c1 = 1.70158;
+    local c3 = c1 + 1;
+    return 1 + c3 * pow(t - 1, 3) + c1 * pow(t - 1, 2);
+}
+
+ease["InOutBack"] <- function(t) { 
+    local c1 = 1.70158;
+    local c2 = c1 * 1.525;
+    return t < 0.5
+       ? (pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2
+       : (pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2;
+}
+
+ease["InElastic"] <- function(t) { 
+    local c4 = (2 * PI) / 3;
+    return t == 0
+        ? 0
+        : t == 1
+        ? 1
+        : -pow(2, 10 * t - 10) * sin((t * 10 - 10.75) * c4);
+}
+
+ease["OutElastic"] <- function(t) { 
+    local c4 = (2 * PI) / 3;
+    return t == 0
+    ? 0
+    : t == 1
+    ? 1
+    : pow(2, -10 * t) * sin((t * 10 - 0.75) * c4) + 1;
+}
+
+ease["InOutElastic"] <- function(t) { 
+    local c5 = (2 * PI) / 4.5;
+    return t == 0
+    ? 0
+    : t == 1
+    ? 1
+    : t < 0.5
+    ? -(pow(2, 20 * t - 10) * sin((20 * t - 11.125) * c5)) / 2
+    : (pow(2, -20 * t + 10) * sin((20 * t - 11.125) * c5)) / 2 + 1;
+}
+
+ease["InBounce"] <- function(t) { 
+    return 1 - math.ease.OutBounce(1 - t); // todo
+}
+
+ease["OutBounce"] <- function(t) { 
+    local n1 = 7.5625;
+    local d1 = 2.75;
+    if (t < 1 / d1) {
+    return n1 * t * t;
+    } else if (t < 2 / d1) {
+        return n1 * (t -= 1.5 / d1) * t + 0.75;
+    } else if (t < 2.5 / d1) {
+        return n1 * (t -= 2.25 / d1) * t + 0.9375;
+    } else {
+        return n1 * (t -= 2.625 / d1) * t + 0.984375;
+    }
+}
+
+ease["InOutBounce"] <- function(t) { 
+    return t < 0.5
+    ? (1 - math.ease.OutBounce(1 - 2 * t)) / 2
+    : (1 + math.ease.OutBounce(2 * t - 1)) / 2;
+}
+math["Quaternion"] <- class {
+    x = null;
+    y = null;
+    z = null;
+    w = null;
+    
+    /*
+     * Creates a new quaternion.
+     *
+     * @param {number} x - The x component.
+     * @param {number} y - The y component.
+     * @param {number} z - The z component.
+     * @param {number} w - The w component.
+    */
+    constructor(x,y,z,w) {
+        this.x = x
+        this.y = y
+        this.z = z
+        this.w = w
+    }
+
+    /*
+     * Creates a new quaternion from Euler angles.
+     *
+     * @param {Vector} angles - The Euler angles in degrees (pitch, yaw, roll).
+     * @returns {Quaternion} - The new quaternion.
+    */
+    function fromEuler(angles) {
+        // Convert angles to radians
+        local pitch = angles.z * 0.5 / 180 * PI
+        local yaw = angles.y * 0.5 / 180 * PI
+        local roll = angles.x * 0.5 / 180 * PI
+
+        // Calculate sine and cosine values
+        local sRoll = sin(roll);
+        local cRoll = cos(roll);
+        local sPitch = sin(pitch);
+        local cPitch = cos(pitch);
+        local sYaw = sin(yaw);
+        local cYaw = cos(yaw);
+
+        // Calculate quaternion components
+        return math.Quaternion(
+            cYaw * cRoll * sPitch - sYaw * sRoll * cPitch,
+            cYaw * sRoll * cPitch + sYaw * cRoll * sPitch,
+            sYaw * cRoll * cPitch - cYaw * sRoll * sPitch,
+            cYaw * cRoll * cPitch + sYaw * sRoll * sPitch
+        )
+    }
+
+    /*
+     * Creates a new quaternion from a vector.
+     *
+     * @param {Vector} vector - The vector.
+     * @returns {Quaternion} - The new quaternion with the vector's components as x, y, z, and w set to 0.
+    */
+    function fromVector(vector) {
+        return math.Quaternion(vector.x, vector.y, vector.z, 0)
+    }
+
+
+    /*
+     * Rotates a vector by the quaternion.
+     *
+     * @param {Vector} vector - The vector to rotate.
+     * @returns {Vector} - The rotated vector.
+    */
+    function rotateVector(vector) {
+        // Convert vector to quaternion
+        local vecQuaternion = this.fromVector(vector)
+    
+        // Find the inverse quaternion
+        local inverse = math.Quaternion(
+            -this.x,
+            -this.y,
+            -this.z,
+            this.w
+        )
+    
+        // Apply quaternion rotations to the vector
+        local rotatedQuaternion = this * vecQuaternion * inverse;
+    
+        // Return the result as a rotated vector
+        return Vector(rotatedQuaternion.x, rotatedQuaternion.y, rotatedQuaternion.z);
+    }
+    
+    /*
+     * Un-rotates a vector by the quaternion.
+     *
+     * @param {Vector} vector - The vector to un-rotate.
+     * @returns {Vector} - The un-rotated vector.
+    */
+    function unrotateVector(vector) {
+        local vecQuaternion = this.fromVector(vector)
+
+        // Find the conjugate quaternion
+        local conjugateQuaternion = math.Quaternion(
+            -this.x,
+            -this.y,
+            -this.z,
+            this.w
+        );
+        
+        // Apply quaternion rotations to the vector with inverse rotation angles
+        local unrotatedQuaternion = conjugateQuaternion * vecQuaternion * this;
+    
+        // Return the result as an un-rotated vector
+        return Vector(unrotatedQuaternion.x, unrotatedQuaternion.y, unrotatedQuaternion.z);
+    }
+
+    /*
+     * Performs spherical linear interpolation (slerp) between two quaternions.
+     *
+     * @param {Quaternion} targetQuaternion - The target quaternion to interpolate towards.
+     * @param {Number} t - The interpolation parameter between 0 and 1.
+     * @returns {Quaternion} - The interpolated quaternion.
+    */
+    function slerp(targetQuaternion, t) {
+        // Normalize quaternions
+        local quaternion1 = this.normalize()
+        local quaternion2 = targetQuaternion.normalize()
+
+        // Calculate angle between quaternions
+        local cosTheta = quaternion1.x * quaternion2.x + quaternion1.y * quaternion2.y + quaternion1.z * quaternion2.z + quaternion1.w * quaternion2.w;
+
+        // If angle is negative, invert the second quaternion
+        if (cosTheta < 0) {
+            quaternion2.x *= -1;
+            quaternion2.y *= -1;
+            quaternion2.z *= -1;
+            quaternion2.w *= -1;
+            cosTheta *= -1;
+        }
+
+        // Calculate interpolation values
+        local theta = acos(cosTheta);
+        local sinTheta = sin(theta);
+        local weight1 = sin((1 - t) * theta) / sinTheta;
+        local weight2 = sin(t * theta) / sinTheta;
+
+        // Interpolate quaternions
+        local resultQuaternion = math.Quaternion(
+            weight1 * quaternion1.x + weight2 * quaternion2.x,
+            weight1 * quaternion1.y + weight2 * quaternion2.y,
+            weight1 * quaternion1.z + weight2 * quaternion2.z,
+            weight1 * quaternion1.w + weight2 * quaternion2.w
+        );
+
+        return resultQuaternion.normalize()
+    }
+
+    /*
+     * Normalizes the quaternion.
+     *
+     * @returns {Quaternion} - The normalized quaternion.
+    */
+    function normalize() {
+        local magnitude = this.length()
+        if(magnitude == 0) throw "Quaternion.normalize: zero length"
+
+        return math.Quaternion(
+            this.x / magnitude,
+            this.y / magnitude,
+            this.z / magnitude,
+            this.w / magnitude
+        )
+    }
+
+    /*
+     * Calculates the dot product of two quaternions.
+     * 
+     * @param {Quaternion} other - The other quaternion.
+     * @returns {number} - The dot product.
+    */
+    function dot(other) {
+        return this.x * other.x + this.y * other.y + this.z * other.z + this.w * other.w;
+    }
+
+    /*
+     * Calculates the length (magnitude) of the quaternion.
+     * 
+     * @returns {number} - The length of the quaternion.
+    */
+    function length() {
+        return sqrt(this.x * this.x + this.y * this.y + this.z * this.z + this.w * this.w);
+    }
+
+    /*
+     * Calculates the inverse of the quaternion.
+     * 
+     * @returns {Quaternion} - The inverse quaternion.
+    */
+    function inverse() {
+        local len2 = this.length() * this.length();
+        if (len2 == 0) throw "Quaternion.inverse: zero length";
+        return math.Quaternion(-this.x / len2, -this.y / len2, -this.z / len2, this.w / len2);
+    }
+
+    /*
+     * Creates a quaternion from an axis and an angle.
+     * 
+     * @param {Vector} axis - The axis of rotation (normalized vector).
+     * @param {number} angle - The angle of rotation in radians.
+     * @returns {Quaternion} - The quaternion.
+    */
+    function fromAxisAngle(axis, angle) {
+        local halfAngle = angle * 0.5;
+        local sinHalfAngle = sin(halfAngle);
+        return math.Quaternion(axis.x * sinHalfAngle, axis.y * sinHalfAngle, axis.z * sinHalfAngle, cos(halfAngle));
+    }
+
+    /*
+     * Converts the quaternion to an axis and an angle.
+     * 
+     * @returns {table} - A table with keys "axis" (Vector) and "angle" (number).
+    */
+    function toAxisAngle() {
+        local scale = sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+        if (scale < 0.001) {
+            return { axis = Vector(1, 0, 0), angle = 0 };
+        }
+        return { 
+            axis = Vector(this.x / scale, this.y / scale, this.z / scale), 
+            angle = 2 * acos(this.w) 
+        };
+    }
+
+
+    /*
+     * Converts the quaternion to a vector representing Euler angles.
+     *
+     * @returns {Vector} - The vector representing Euler angles in degrees.
+    */
+    function toVector() {
+        local sinr_cosp = 2 * (this.w * this.x + this.y * this.z);
+        local cosr_cosp = 1 - 2 * (this.x * this.x + this.y * this.y);
+        local roll = atan2(sinr_cosp, cosr_cosp);
+
+        local sinp = 2 * (this.w * this.y - this.z * this.x);
+        local pitch;
+        if (abs(sinp) >= 1) {
+            pitch = math.copysign(PI / 2, sinp); // PI/2 or -PI/2
+        } else {
+            pitch = asin(sinp);
+        }
+
+        local siny_cosp = 2 * (this.w * this.z + this.x * this.y);
+        local cosy_cosp = 1 - 2 * (this.y * this.y + this.z * this.z);
+        local yaw = atan2(siny_cosp, cosy_cosp);
+
+        // Convert angles to degrees
+        local x = pitch * 180 / PI;
+        local y = yaw * 180 / PI;
+        local z = roll * 180 / PI;
+
+        return Vector( x, y, z )
+    }
+
+    /* 
+     * Checks if two quaternions are equal based on their components and length.
+     *
+     * @param {Quaternion} other - The other quaternion to compare.
+     * @returns {boolean} - True if the quaternions are equal, false otherwise.
+    */
+    function IsEqual(other) {
+        return this.cmp(other) == 0
+    }
+
+    /*
+     * Compares two quaternions based on their magnitudes.
+     *
+     * @param {Quaternion} other - The other quaternion to compare.
+     * @returns {number} - 1 if this quaternion's magnitude is greater, -1 if less, 0 if equal.
+    */
+    function cmp(other) {
+        if (typeof other != "Quaternion") {
+            throw "Cannot compare quaternion with non-quaternion type";
+        }
+    
+        local thisMagnitude = math.round(this.length(), 10000);
+        local otherMagnitude = math.round(other.length(), 10000);
+
+        if (thisMagnitude > otherMagnitude) {
+            return 1;
+        } else if (thisMagnitude < otherMagnitude) {
+            return -1;
+        } else {
+            return 0; 
+        }
+    }
+
+    function _cmp(other) return this.cmp(other)
+
+
+    function _add(other) {
+        return math.Quaternion(
+            this.x + other.x,
+            this.y + other.y,
+            this.z + other.z,
+            this.w + other.w
+        )
+    }
+
+
+    function _sub(other) {
+        return math.Quaternion(
+            this.x - other.x,
+            this.y - other.y,
+            this.z - other.z,
+            this.w - other.w
+        )
+    }
+    
+    /*
+     * Multiplies two quaternions.
+     *
+     * @param {Quaternion} other - The other quaternion.
+     * @returns {Quaternion} - The multiplication result.
+    */
+    function _mul(other) {
+        if(typeof other == "Quaternion") {
+            return math.Quaternion(
+                this.w * other.x + this.x * other.w + this.y * other.z - this.z * other.y,
+                this.w * other.y - this.x * other.z + this.y * other.w + this.z * other.x,
+                this.w * other.z + this.x * other.y - this.y * other.x + this.z * other.w,
+                this.w * other.w - this.x * other.x - this.y * other.y - this.z * other.z
+            )
+        }
+
+        return math.Quaternion( 
+            this.x * other,
+            this.y * other,
+            this.z * other,
+            this.w * other
+        )
+    }
+
+    function _tostring() {
+        return "Quaternion: (" + x + ", " + y + ", " + z + ", " + w + ")"
+    }
+
+    function _typeof() {
+        return "Quaternion"
+    }
+}
+math["Matrix"] <- class {
+    a = 1; b = 0; c = 0;
+    d = 0; e = 1; f = 0;
+    g = 0; h = 0; k = 1;
+
+    /*
+     * Creates a new matrix.
+     * 
+     * @param {number} a - The value at row 1, column 1.
+     * @param {number} b - The value at row 1, column 2.
+     * @param {number} c - The value at row 1, column 3.
+     * @param {number} d - The value at row 2, column 1.
+     * @param {number} e - The value at row 2, column 2.
+     * @param {number} f - The value at row 2, column 3.
+     * @param {number} g - The value at row 3, column 1.
+     * @param {number} h - The value at row 3, column 2.
+     * @param {number} k - The value at row 3, column 3.
+    */
+    constructor(a = 1, b = 0, c = 0,
+                d = 0, e = 1, f = 0,
+                g = 0, h = 0, k = 1
+        ) {
+            this.a = a; this.b = b; this.c = c;
+            this.d = d; this.e = e; this.f = f;
+            this.g = g; this.h = h; this.k = k;
+        }
+    /*
+     * Creates a rotation matrix from Euler angles.
+     * 
+     * @param {Vector} angles - Euler angles in degrees (pitch, yaw, roll).
+     * @returns {Matrix} - The rotation matrix.
+    */
+    function fromEuler(angles) {
+        local sinX = sin(-angles.z / 180 * PI);
+        local cosX = cos(-angles.z / 180 * PI);
+        local sinY = sin(-angles.x / 180 * PI);
+        local cosY = cos(-angles.x / 180 * PI);
+        local sinZ = sin(-angles.y / 180 * PI);
+        local cosZ = cos(-angles.y / 180 * PI);
+        return math.Matrix(
+            cosY * cosZ, -sinX * -sinY * cosZ + cosX * sinZ, cosX * -sinY * cosZ + sinX * sinZ,
+            cosY * -sinZ, -sinX * -sinY * -sinZ + cosX * cosZ, cosX * -sinY * -sinZ + sinX * cosZ,
+            sinY, -sinX * cosY, cosX * cosY
+        );
+    }
+
+    /*
+     * Rotates a point using the matrix.
+     * 
+     * @param {Vector} point - The point to rotate.
+     * @returns {Vector} - The rotated point.
+    */
+    function rotateVector(point) {
+        return Vector(
+            point.x * this.a + point.y * this.b + point.z * this.c,
+            point.x * this.d + point.y * this.e + point.z * this.f,
+            point.x * this.g + point.y * this.h + point.z * this.k
+        );
+    }
+
+    /*
+     * Unrotates a point using the matrix.
+     * 
+     * @param {Vector} point - The point to unrotate.
+     * @returns {Vector} - The unrotated point.
+    */
+    function unrotateVector(point) {
+        return Vector(
+            point.x * this.a + point.y * this.d + point.z * this.g,
+            point.x * this.b + point.y * this.e + point.z * this.h,
+            point.x * this.c + point.y * this.f + point.z * this.k
+        );
+    }
+
+    /*
+     * Transposes the matrix.
+     * 
+     * @returns {Matrix} - The transposed matrix.
+    */
+    function transpose() {
+        return math.Matrix(
+            this.a, this.d, this.g,
+            this.b, this.e, this.h,
+            this.c, this.f, this.k
+        );
+    }
+
+    /*
+     * Calculates the inverse of the matrix.
+     * 
+     * @returns {Matrix} - The inverse matrix.
+     * @throws {Error} - If the matrix is singular (determinant is zero).
+    */
+    function inverse() {
+        local det = this.determinant();
+        if (det == 0) {
+            throw "Matrix is singular (determinant is zero)"
+        }
+        local invDet = 1 / det;
+        return math.Matrix(
+            (this.e * this.k - this.f * this.h) * invDet,
+            (this.c * this.h - this.b * this.k) * invDet,
+            (this.b * this.f - this.c * this.e) * invDet,
+            (this.f * this.g - this.d * this.k) * invDet,
+            (this.a * this.k - this.c * this.g) * invDet,
+            (this.c * this.d - this.a * this.f) * invDet,
+            (this.d * this.h - this.e * this.g) * invDet,
+            (this.b * this.g - this.a * this.h) * invDet,
+            (this.a * this.e - this.b * this.d) * invDet
+        );
+    }
+
+    /*
+     * Calculates the determinant of the matrix.
+     * 
+     * @returns {number} - The determinant of the matrix.
+    */
+    function determinant() {
+        return this.a * (this.e * this.k - this.f * this.h) -
+               this.b * (this.d * this.k - this.f * this.g) +
+               this.c * (this.d * this.h - this.e * this.g);
+    }
+
+    /*
+     * Scales the matrix by a given factor.
+     * 
+     * @param {number} factor - The scaling factor.
+     * @returns {Matrix} - The scaled matrix.
+    */
+    function scale(factor) {
+        return math.Matrix(
+            this.a * factor, this.b * factor, this.c * factor,
+            this.d * factor, this.e * factor, this.f * factor,
+            this.g * factor, this.h * factor, this.k * factor
+        );
+    }
+
+    /*
+     * Rotates the matrix around the X axis by a given angle.
+     * 
+     * @param {number} angle - The angle of rotation in radians.
+     * @returns {Matrix} - The rotated matrix.
+    */
+    function rotateX(angle) {
+        local sinAngle = sin(angle);
+        local cosAngle = cos(angle);
+        return math.Matrix(
+            1, 0, 0,
+            0, cosAngle, -sinAngle,
+            0, sinAngle, cosAngle
+        ) * this;
+    }
+
+    /*
+     * Multiplies two matrices.
+     * 
+     * @param {Matrix} other - The other matrix.
+     * @returns {Matrix} - The result of the multiplication.
+    */
+    function _mul(other) {
+        return math.Matrix(
+            this.a * other.a + this.b * other.d + this.c * other.g,
+            this.a * other.b + this.b * other.e + this.c * other.h,
+            this.a * other.c + this.b * other.f + this.c * other.k,
+            this.d * other.a + this.e * other.d + this.f * other.g,
+            this.d * other.b + this.e * other.e + this.f * other.h,
+            this.d * other.c + this.e * other.f + this.f * other.k,
+            this.g * other.a + this.h * other.d + this.k * other.g,
+            this.g * other.b + this.h * other.e + this.k * other.h,
+            this.g * other.c + this.h * other.f + this.k * other.k
+        );
+    }
+
+    /*
+     * Adds two matrices.
+     * 
+     * @param {Matrix} other - The other matrix.
+     * @returns {Matrix} - The result of the addition.
+    */
+    function _add(other) {
+        return math.Matrix(
+            this.a + other.a, this.b + other.b, this.c + other.c,
+            this.d + other.d, this.e + other.e, this.f + other.f,
+            this.g + other.g, this.h + other.h, this.k + other.k
+        );
+    }
+
+    /*
+     * Subtracts two matrices.
+     * 
+     * @param {Matrix} other - The other matrix.
+     * @returns {Matrix} - The result of the subtraction.
+    */
+    function _sub(other) {
+        return math.Matrix(
+            this.a - other.a, this.b - other.b, this.c - other.c,
+            this.d - other.d, this.e - other.e, this.f - other.f,
+            this.g - other.g, this.h - other.h, this.k - other.k
+        );
+    }
+
+    /*
+     * Checks if two matrices are equal based on their components and sum.
+     *
+     * @param {Matrix} other - The other matrix to compare.
+     * @returns {boolean} - True if the matrices are equal, false otherwise.
+    */
+    function IsEqual(other) {
+        return this.cmp(other) == 0
+    }
+
+    /*
+     * Compares two matrices based on the sum of their components.
+     *
+     * @param {Matrix} other - The other matrix to compare.
+     * @returns {number} - 1 if this matrix's sum is greater, -1 if less, 0 if equal.
+    */
+    function cmp(other) {
+        if (typeof other != "Matrix") {
+            throw "Cannot compare matrix with non-matrix type";
+        }
+    
+        local thisSum = a + b - c + d + e + f - g + h - k;
+        local otherSum = other.a + other.b - other.c + other.d + other.e + other.f - other.g + other.h - other.k;
+        
+        if (thisSum > otherSum) {
+            return 1;
+        } else if (thisSum < otherSum) {
+            return -1;
+        } else {
+            return 0;
+        }
+    }
+
+    function _cmp(other) return this.cmp(other)
+
+    function _tostring() {
+        return "Matrix: {" + a + ", " + b + ", " + c + "\n\t " + d + ", " + e + ", " + f + "\n\t " + g + ", " + h + ", " + k + "}"
+    }
+
+    function _typeof() {
+        return "Matrix"
+    }
+}
+
+/*+--------------------------------------------------------------------------------+
+|                           PCapture Vscripts Library                              |
++----------------------------------------------------------------------------------+
+| Author:                                                                          |
+|     Event Orchestrator - laVashik ・人・                                          |
++----------------------------------------------------------------------------------+
+|   The Events module, offering an advanced event scheduling and management system | 
+|   for creating complex, timed events with precision and control.                 |
++----------------------------------------------------------------------------------+ */ 
+
+
+::ScheduleEvent <- {
+    // Object to store scheduled events 
+    eventsList = {global = List()},
+    
+    Add = null,
+    AddActions = null,
+    AddInterval = null,
+
+    Cancel = null,
+    CancelAll = null,
+    
+    GetEvent = null,
+    
+    IsValid = null,
+}
+
+/*
+ * Represents a scheduled action.
+ *
+ * This class encapsulates information about an action that is scheduled to be executed at a specific time.
+*/
+::ScheduleAction <- class {
+    // The entity that created the event. 
+    scope = null;
+    // The action to execute when the scheduled time arrives.  
+    action = null;
+    // The time at which the action is scheduled to be executed. 
+    executionTime = null;
+    // Optional arguments to pass to the action function.  
+    args = null;
+
+    /*
+     * Constructor for a ScheduleAction object.
+     *
+     * @param {pcapEntity} scope - The entity that created the event.
+     * @param {string|function} action - The action to execute when the event is triggered.
+     * @param {number} delay - The time at which the event is scheduled to be executed.
+     * @param {array|null} args - Optional arguments to pass to the action function. 
+    */
+    constructor(scope, action, delay, args = null) {
+        this.scope = scope
+        this.action = action
+        this.executionTime = delay + Time()
+
+        if(args != null && typeof args != "array") throw("arguments must be an array, but got " + typeof args)
+        this.args = args
+    }
+
+    /* 
+     * Executes the scheduled action. 
+     *
+     * If the action is a string, it is compiled into a function before execution.
+     * If arguments are provided, they are passed to the action function. 
+     *
+     * @returns {any} - The result of the action function. 
+    */
+    function run() {
+        if(type(this.action) == "string")
+            this.action = compilestring(action)
+
+        if(this.args == null) {
+            return this.action.call(scope)
+        }
+        
+        local actionArgs = [this.scope]
+        actionArgs.extend(this.args)
+        return this.action.acall(actionArgs)
+    }
+
+    /*
+     * Processes a generator action.
+     * 
+     * @param {Generator} generator - The generator to be processed.
+     * @returns {any} - The result of processing the generator.
+    */
+    function processGenerator(generator, eventName) {
+        if(generator.getstatus() == "dead") return
+        local delay = resume generator
+        if(delay == null) return
+        
+        try {delay = delay.tofloat()} 
+        catch(err) {throw "Invalid value for sleep. " + err}
+        if (delay <= 0.0) delay = FrameTime()
+        
+        if(eventName in ScheduleEvent.eventsList) {
+            ScheduleEvent.Add(eventName, generator, delay, null, this.scope)
+        } else {
+            dev.warning("Generator pause will not take effect as the event '{}' no longer exists in the schedule.", eventName)
+        }
+    }
+
+    function GetInfo() return "[Scope] " + scope + "\n[Action] " + this.action + "\n[executionTime] " + executionTime
+    function _typeof() return "ScheduleAction"
+    function _tostring() return "ScheduleAction: (" + this.executionTime + ")"
+    function _cmp(other) {    
+        if (this.executionTime > other.executionTime) return 1;
+        else if (this.executionTime < other.executionTime) return -1;
+        return 0; 
+    }
+}
+/*
+ * Adds a single action to a scheduled event with the specified name.
+ *
+ * @param {string|any} eventName - The name of the event to add the action to. If the event does not exist, it is created.
+ * @param {string|function} action - The action to execute when the scheduled time arrives. This can be a string containing VScripts code or a function object.
+ * @param {number} timeDelay - The delay in seconds before executing the action.
+ * @param {array|null} args - An optional array of arguments to pass to the action function.
+ * @param {object} scope - The scope in which to execute the action (default is `this`). 
+*/
+ScheduleEvent["Add"] <- function(eventName, action, timeDelay, args = null, scope = this) {
+    if (typeof action != "string" && typeof action != "function" && typeof action != "native function" && typeof action != "generator") throw("ScheduleEvent.Add: 'action' must be a function or a string, but got " + typeof action);
+    if (typeof timeDelay != "integer" && typeof timeDelay != "float") throw("ScheduleEvent.Add: 'timeDelay' must be a number, but got " + typeof timeDelay);
+    local argsType = typeof args;
+    if(args && argsType != "array" && argsType != "ArrayEx" && argsType != "List") throw("ScheduleEvent.Add: 'args' must be an array, List, or null, but got " + typeof args)
+
+    if ( !(eventName in ScheduleEvent.eventsList) ) {
+        ScheduleEvent.eventsList[eventName] <- List()
+        dev.trace("Created new Event - \"{}\"", eventName)
+    }
+
+    local newScheduledEvent = ScheduleAction(scope, action, timeDelay, args)
+    local currentActionList = ScheduleEvent.eventsList[eventName]
+
+
+    if(currentActionList.len() == 0 || currentActionList.top() <= newScheduledEvent) {
+        currentActionList.append(newScheduledEvent)
+        return
+    } 
+    
+    //* --- A binary search.
+    local low = 0
+    local high = currentActionList.len() - 1
+    local mid
+
+    local tempActionArr = currentActionList.toarray()
+    while (low <= high) {
+        mid = (low + high) / 2
+        if (tempActionArr[mid] < newScheduledEvent) {
+            low = mid + 1
+        }
+        else if (tempActionArr[mid] > newScheduledEvent) {
+            high = mid - 1
+        }
+        else {
+            low = mid
+            break
+        }
+    }
+    
+    currentActionList.insert(low, newScheduledEvent)
+}
+
+/*
+ * Adds an action to a scheduled event that will be executed repeatedly at a fixed interval. 
+ *
+ * @param {string|any} eventName - The name of the event to add the interval to. If the event does not exist, it is created.
+ * @param {string|function} action - The action to execute at each interval.
+ * @param {number} interval - The time interval in seconds between executions of the action.
+ * @param {number} initialDelay - The initial delay in seconds before the first execution of the action (default is 0). 
+ * @param {array|null} args - An optional array of arguments to pass to the action function. 
+ * @param {object} scope - The scope in which to execute the action (default is `this`). 
+*/ 
+ScheduleEvent["AddInterval"] <- function(eventName, action, interval, initialDelay = 0, args = null, scope = this) {
+    if (typeof action != "string" && typeof action != "function" && typeof action != "native function" && typeof action != "generator") throw("ScheduleEvent.AddInterval: 'action' must be a function or a string, but got " + typeof action);
+    if (typeof interval != "integer" && typeof interval != "float") throw("ScheduleEvent.AddInterval: 'interval' must be a number, but got " + typeof interval);
+    if (interval <= 0) throw("ScheduleEvent.AddInterval: 'interval' must be a positive number, but got " + interval);
+    if (typeof initialDelay != "integer" && typeof initialDelay != "float") throw("ScheduleEvent.AddInterval: 'initialDelay' must be a number, but got " + typeof initialDelay);
+    local argsType = typeof args;
+    if(args && argsType != "array" && argsType != "ArrayEx" && argsType != "List") throw("ScheduleEvent.AddInterval: 'args' must be an array, List, or null, but got " + typeof args)
+
+
+    ScheduleEvent.Add(eventName, action, initialDelay, args, scope)
+    ScheduleEvent.Add(eventName, ScheduleEvent.AddInterval, initialDelay + interval, [eventName, action, interval, 0, args, scope], scope)
+}
+
+/*
+ * Adds multiple actions to a scheduled event, ensuring they are sorted by execution time.
+ *
+ * @param {string|any} eventName - The name of the event to add the actions to. If the event does not exist, it is created.
+ * @param {array|List} actions - An array or List of `ScheduleAction` objects to add to the event.
+ * @param {boolean} noSort - If true, the actions will not be sorted by execution time (default is false).
+ * 
+ * **Caution:** Use the `noSort` parameter with care. Incorrect usage may lead to unexpected behavior or break the event scheduling logic. 
+*/ 
+ScheduleEvent["AddActions"] <- function(eventName, actions, noSort = false) { 
+    local actionsType = typeof actions;
+    if (actionsType != "array" && actionsType != "List" && actionsType != "ArrayEx") throw("ScheduleEvent.AddActions: 'actions' must be an array or a List, but got " + actionsType);
+    if (actions.len() > 0) {
+        if (typeof actions[0] != "ScheduleAction") {
+            dev.warning("ScheduleEvent.AddActions: The 'actions' container does not appear to hold ScheduleAction objects. This might cause errors.");
+        }
+    }
+
+    if(eventName in ScheduleEvent.eventsList) {
+        ScheduleEvent.eventsList[eventName].extend(actions)
+        ScheduleEvent.eventsList[eventName].sort()
+        if(developer() > 0) dev.trace("Added {} actions to Event \"{}\".", actions.len(), eventName)
+        return 
+    } 
+
+    if(!noSort) actions.sort()
+
+    if(typeof actions == "List") {
+        ScheduleEvent.eventsList[eventName] <- actions
+    } else {
+        ScheduleEvent.eventsList[eventName] <- List.FromArray(actions)
+    }
+
+    if(developer() > 0) dev.trace("Created new Event \"{}\" with {} actions.", eventName, actions.len())
+}
+
+
+/*
+ * Cancels a scheduled event with the given name, optionally after a delay.
+ *
+ * @param {string|any} eventName - The name of the event to cancel.
+ * @param {number} delay - An optional delay in seconds before canceling the event.
+*/  
+ScheduleEvent["Cancel"] <- function(eventName, delay = 0) {
+    if(eventName == "global")
+        throw("The global event cannot be closed!")
+    if(!(eventName in ScheduleEvent.eventsList))
+        throw("There is no event named " + eventName)
+    if(delay > 0)
+        return ScheduleEvent.Add("global", format("ScheduleEvent.Cancel(\"%s\")", eventName), delay)
+    
+    ScheduleEvent.eventsList.rawdelete(eventName)
+        
+    if(developer() > 0) dev.trace("Event \"{}\" closed! Actial events: {}", eventName, macros.GetKeys(ScheduleEvent.eventsList))
+}
+
+/*
+ * Attempts to cancel a scheduled event with the given name, optionally after a delay.
+ *
+ * @param {string|any} eventName - The name of the event to cancel.
+ * @param {number} delay - An optional delay in seconds before attempting to cancel the event.
+ * @returns {boolean} - True if the event was found and canceled, false otherwise.
+ * 
+ * This function is similar to `ScheduleEvent.Cancel`, but it does not throw an error if the event is not found.
+ * It's useful for situations where you're unsure if an event exists and want to attempt cancellation without risking errors.
+*/
+ScheduleEvent["TryCancel"] <- function(eventName, delay = 0) {
+    if(delay > 0) 
+        return ScheduleEvent.Add("global", ScheduleEvent.TryCancel, delay, [eventName])
+    local isValid = ScheduleEvent.IsValid(eventName) 
+    if(isValid) ScheduleEvent.Cancel(eventName)
+    return isValid
+}
+
+/*
+* Cancels all scheduled events and actions, effectively clearing the event scheduler.
+*/
+ScheduleEvent["CancelAll"] <- function() {
+    ScheduleEvent.eventsList = {global = ScheduleEvent.eventsList["global"]}
+    dev.trace("Scheduled events have been canceled!")
+}
+
+/* 
+* Cancels all scheduled events and actions, EVEN GLOBAL!! effectively clearing the event scheduler.
+* Undocumented unsafe function. You must understand what you are doing!
+*/
+ScheduleEvent["UNSAFE_ClearWithGlobal"] <- function() {
+    ScheduleEvent.eventsList = {global = List()}
+    dev.trace("All scheduled events have been canceled!")
+}
+
+
+/*
+ * Gets info about a scheduled event.
+ * 
+ * @param {string|any} eventName - Name of event to get info for.
+ * @returns {List|null} - The event info object or null if not found.
+*/
+ScheduleEvent["GetEvent"] <- function(eventName) {
+    return eventName in ScheduleEvent.eventsList ? ScheduleEvent.eventsList[eventName] : null
+}
+
+
+/*
+ * Checks if event is valid
+ * 
+ * @param {string|any} eventName - Name of event to get info for.
+ * @returns {bool} - Object exists or not.
+*/
+ScheduleEvent["IsValid"] <- function(eventName) {
+    return eventName in ScheduleEvent.eventsList
+}
+/*
+ * Executes scheduled events when their time is up. 
+ * 
+ * This function iterates over all scheduled events and checks if their scheduled execution time has arrived. 
+ * If so, it executes the event's action and removes it from the list of scheduled events. 
+ * The function then schedules itself to run again after a short delay to continue processing events.
+*/
+::ScheduledEventLoop <- function() {
+    local time = Time() + 0.0001
+    local eventsToDelete = List() // Buffer for safe deletion
+
+    // Iterate over each event name and its corresponding event list. 
+    foreach(eventName, eventInfo in ScheduleEvent.eventsList) {
+        local event 
+        // Process events until the list is empty or the next event's time hasn't arrived yet.  
+        while(eventInfo.length > 0 && time >= (event = eventInfo.first()).executionTime) {
+            eventInfo.remove(0)
+            try {
+                local gtor = event.action
+                if(typeof event.action == "generator" || typeof (gtor = event.run()) == "generator") {
+                    event.processGenerator(gtor, eventName)
+                }
+            }
+            catch(exception) {
+                // ScheduleEvent unwinding
+                macros.fprint("\nSCHEDULED EVENT\n[Name] {}\n{}\n[Exception] {}\n[Event Action List] {}\n[Time] {}", eventName, event.GetInfo(), exception, ScheduleEvent.eventsList[eventName], time)
+
+                if(typeof event.action == "function" || typeof event.action == "native function") {
+                    printl("\nFUNCTION INFO")
+                    foreach(key, val in event.action.getinfos()) {
+                        if(type(val) == "array") val = ArrayEx.FromArray(val)
+                        macros.fprint("[{}] {}", key.toupper(), val)
+                    }
+                }
+
+                printl("-------------------------------------------------\n");
+                SendToConsole("playvol resource/warning.wav 1")
+            }
+        }
+        
+        if(eventName != "global" && eventInfo.length == 0) {
+            eventsToDelete.append(eventName) 
+        }
+    }
+
+    // Safely delete events after completion of the main loop.
+    foreach (eventName in eventsToDelete.iter()) {
+        if (eventName in ScheduleEvent.eventsList) {
+            ScheduleEvent.eventsList.rawdelete(eventName)
+            if(developer() > 0) dev.trace("Event {} closed.", eventName)
+        }
+    }
+}
+
+// Create a logic_timer to process the event loop.
+if(!Entities.FindByName(null, "@ScheduledEventLoop")) {
+    local timer = entLib.CreateByClassname("logic_timer", {RefireTime=0.001, targetname="@ScheduledEventLoop"})
+    timer.ConnectOutput("OnTimer", "ScheduledEventLoop")
+    EntFire("@ScheduledEventLoop", "Enable")
+}
+/*+--------------------------------------------------------------------------------+
+|                           PCapture Vscripts Library                              |
++----------------------------------------------------------------------------------+
+| Author:                                                                          |
 |     Squirrel Whisperer - laVashik :>                                             |
 +----------------------------------------------------------------------------------+
 |       A toolbox of versatile utilities for script execution, debugging, file     |
@@ -3852,7 +4477,7 @@ if(("dissolver" in getroottable()) == false) {
         // endregion
 
         local msg = macros.format.acall(args)
-        printl("~ " + msg)
+        printl("[VScripts Debug (" + Time().tostring() + ")]: " + msg)
     },
 
 
@@ -4085,7 +4710,7 @@ if("GetPlayerEx" in getroottable()) {
 */
 ::EntFireByHandle <- function(target, action, value = "", delay = 0, activator = null, caller = null, eventName = null) {
     // Extract the underlying entity from the pcapEntity wrapper 
-    if (typeof target == "pcapEntity") // todo create macros for this!
+    if (typeof target == "pcapEntity") 
         target = target.CBaseEntity
     if (typeof activator == "pcapEntity")
         activator = activator.CBaseEntity
@@ -4095,13 +4720,6 @@ if("GetPlayerEx" in getroottable()) {
     if(!eventName) 
         return _EntFireByHandle(target, action, value, delay, activator, caller)
     ScheduleEvent.Add(eventName, _EntFireByHandle, delay, [target, action, value, 0, activator, caller])
-}
-
-// todo what the fuck, lol
-::EntFireEx <- function(target, action, value = "", delay = 0, activator = null, eventName = null) {
-    if(!eventName)
-        return EntFire(target, action, value, delay, activator)
-    ScheduleEvent.Add(eventName, EntFire, delay, [target, action, value, 0, activator])
 }
 
 /*
@@ -4117,13 +4735,15 @@ if("GetPlayerEx" in getroottable()) {
     if(index >= AllPlayers.len()) return null
     return AllPlayers[index]
 }
+::InitedPortals <- {}
+
 /*
  * Creates a `func_portal_detector` entity with specified key-value pairs and settings for portal detection.
  * 
  * This function is not part of the public API.
 */
 ::_CreatePortalDetector <- function(extraKey, extraValue) {
-    local detector = entLib.CreateByClassname("func_portal_detector", {solid = 3, CollisionGroup = 10})
+    local detector = entLib.CreateByClassname("func_portal_detector", {solid = 0, CollisionGroup = 10})
     detector.SetKeyValue(extraKey, extraValue)
     detector.SetBBox(Vector(32000, 32000, 32000) * -1, Vector(32000, 32000, 32000))
     detector.SetTraceIgnore(true)
@@ -4142,10 +4762,18 @@ if("GetPlayerEx" in getroottable()) {
  * @param {number} id - The ID of the portal pair.
 */
 ::InitPortalPair <- function(id) {
+    // If it was previously initialized, just turn on the detector.
+    if(id in InitedPortals) return InitedPortals[id]
+
     local detector = _CreatePortalDetector("LinkageGroupID", id)
 
     // The "free variables" syntax is different in Sq2 and Sq3, which is why I try to avoid executing it
     detector.ConnectOutputEx("OnStartTouchPortal", compilestring("activator.SetHealth(" + id + ")"))
+    detector.ConnectOutputEx("OnEndTouchPortal", compilestring("activator.SetHealth(9999)"))
+    // Marking the portal as initialized
+    InitedPortals[id] <- detector
+    
+    return detector
 }
 
 /*
@@ -4161,14 +4789,21 @@ if("GetPlayerEx" in getroottable()) {
  * This function is called automatically at the initialization.
 */
 ::SetupLinkedPortals <- function() {
+    local portalStateHandler = function(state) {
+        local p = entLib.FromEntity(self)
+        p.SetTraceIgnore(state)
+        local p2 = p.GetPartnerInstance()
+        if(p2) p2.SetTraceIgnore(state) 
+        return true
+    }
     // Iterate through all linked_portal_door entities.  
     for(local portal; portal = entLib.FindByClassname("linked_portal_door", portal);) {
         // Skip if the portal already processed
         if(portal.GetUserData("processed"))
             continue
     
-        portal.SetInputHook("Open", function() {entLib.FromEntity(self).SetTraceIgnore(false)})
-        portal.SetInputHook("Close", function() {entLib.FromEntity(self).SetTraceIgnore(true)})
+        portal.SetInputHook("Open", function():(portalStateHandler) {return portalStateHandler(false)})
+        portal.SetInputHook("Close", function():(portalStateHandler) {return portalStateHandler(true)})
 
         local partner = portal.GetPartnerInstance()
     
@@ -4179,8 +4814,7 @@ if("GetPlayerEx" in getroottable()) {
         // Extract bounding box dimensions from the model name (assuming a specific format). 
         local wpInfo = split(portal.GetModelName(), " ")
         // Rotate the bounding box dimensions based on the portal's angles.  
-        local wpBBox = math.vector.rotate(Vector(5, wpInfo[0].tointeger(), wpInfo[1].tointeger()), portal.GetAngles()) 
-        wpBBox = math.vector.abs(wpBBox) 
+        local wpBBox = math.vector.abs(Vector(8, wpInfo[0].tointeger(), wpInfo[1].tointeger()))
         // Set the bounding box of the portal using the calculated dimensions.  
         portal.SetBBox(wpBBox * -1, wpBBox)
         portal.SetUserData("processed", true)
@@ -4193,17 +4827,13 @@ if("GetPlayerEx" in getroottable()) {
  * @param {pcapEntity} portal - The `prop_portal` entity to find the partner for. 
  * @returns {pcapEntity|null} - The partner portal entity, or `null` if no partner is found. 
 */
-::FindPartnerForPropPortal <- function(portal) {
-    // Determine the model name of the partner portal based on the current portal's model. 
-    local mdl = "models/portals/portal1.mdl"
-    if(portal.GetModelName().find("portal2") == null)
-        mdl = "models/portals/portal2.mdl"
-    
+::FindPartnerForPropPortal <- function(portal) {    
     // Find the partner portal entity based on the determined model name.  
     local portalPairId = portal.GetHealth()
-    for(local partner; partner = entLib.FindByModel(mdl, partner);) { 
+    // for(local partner; partner = entLib.FindByModel(mdl, partner);) { 
+    for(local partner; partner = entLib.FindByClassname("prop_portal", partner);) { 
         local partnerPairId = partner.GetHealth() 
-        if(portalPairId != partnerPairId || partner.GetUserData("TracePlusIgnore"))
+        if(portalPairId != partnerPairId || partner.entindex() == portal.entindex() || partner.GetClassname() != "prop_portal" || partner.GetUserData("TracePlusIgnore"))
             continue
         
         return partner 
@@ -4226,12 +4856,13 @@ if("GetPlayerEx" in getroottable()) {
 /* 
  * Precaches a sound script or a list of sound scripts for later use.
  * 
- * @param {string|array|ArrayEx} sound_path - The path to the sound script or a list of paths.
+ * @param {string|array|ArrayEx|List} sound_path - The path to the sound script or a list of paths.
 */
 macros["Precache"] <- function(soundPath) {
     if(typeof soundPath == "string")
         return self.PrecacheSoundScript(soundPath)
-    foreach(path in soundPath)
+    local iter = typeof soundPath == "List" ? soundPath.iter() : soundPath
+    foreach(path in iter)
         self.PrecacheSoundScript(path)
 }
 
@@ -4245,7 +4876,7 @@ macros["Precache"] <- function(soundPath) {
  * @returns {any} - The value associated with the key, or the default value if the key is not found. 
 */ 
 macros["GetFromTable"] <- function(table, key, defaultValue = null) {
-    if(key in table && table[key]) 
+    if(key in table && table[key] != null) 
         return table[key]
     return defaultValue
 }
@@ -4287,7 +4918,7 @@ macros["GetValues"] <- function(table) {
 macros["InvertTable"] <- function(table) {
     local result = {}
     foreach(key, value in table) {
-        result[value] = key
+        result[value] <- key
     }
     return result
 }
@@ -4298,6 +4929,7 @@ macros["InvertTable"] <- function(table) {
  * @param {iterable} iterable - The iterable object to print.
 */
 macros["PrintIter"] <- function(iterable) {
+    iterable = typeof iterable == "List" ? iterable.iter() : iterable
     foreach(k, i in iterable) 
         macros.fprint("{}: {}", k, i)
 }
@@ -4311,6 +4943,8 @@ macros["PrintIter"] <- function(iterable) {
  * @returns {List} - A list of numbers within the specified range.
 */ 
 macros["Range"] <- function(start, end, step = 1) {
+    if(step == 0) throw("macros.Range: step must be non-zero");
+    
     local result = List()
     for (local i = start; i <= end; i += step) {
         result.append(i)
@@ -4327,6 +4961,8 @@ macros["Range"] <- function(start, end, step = 1) {
  * @yields {number} - The next number in the range.
 */ 
 macros["RangeIter"] <- function(start, end, step = 1) {
+    if(step == 0) throw("macros.RangeIter: step must be non-zero");
+
     for (local i = start; i <= end; i += step) {
         yield i
     }
@@ -4345,7 +4981,7 @@ macros["MaskSearch"] <- function(iter, match) {
     if(iter.len() == 0) return null
     if(iter[0] == "*") return 0
 
-    foreach(idx, val in iter) {
+    foreach(idx, val in typeof iter == "List" ? iter.iter() : iter) {
         if(match.find(val) >= 0)
             return idx
     }
@@ -4359,8 +4995,6 @@ macros["MaskSearch"] <- function(iter, match) {
  * @param {any} vargs... - Additional arguments to substitute into the placeholders.
 */
 macros["format"] <- function(msg, ...) {
-    if(msg.len() == 1) return msg
-    
     // If you are sure of what you are doing, you don't have to use it
     local subst_count = 0;
     for (local i = 0; i < msg.len() - 1; i++) {
@@ -4389,7 +5023,7 @@ macros["format"] <- function(msg, ...) {
         result += parts[i];
         if (i < args.len()) {
             local txt = args[i]
-            result += txt;
+            result += ("" + txt);
         }
     }
 
@@ -4416,6 +5050,7 @@ macros["fprint"] <- function(msg, ...) {
 
     printl(macros.format.acall(args))
 }
+::dev.fprint <- macros.fprint // fallback for earlier version of the lib
 
 /*
  * Compiles a function from a string representation.
@@ -4434,7 +5069,7 @@ macros["CompileFromStr"] <- function(funcBody, ...) {
         args[i + 2] = vargv[i]
     }
 
-    return compilefromstr(macros.format.acall(args))
+    return compilestring(macros.format.acall(args))
 }
 
 /* 
@@ -4457,8 +5092,15 @@ macros["GetDist"] <- function(vec1, vec2) {
 */
 macros["StrToVec"] <- function(str, sep = " ") {
     local str_arr = split(str, sep)
-    local vec = Vector(str_arr[0].tofloat(), str_arr[1].tofloat(), str_arr[2].tofloat())
-    return vec
+    if (str_arr.len() != 3) throw(format("macros.StrToVec: Input string '%s' is malformed. Expected 3 components separated by '%s', but got %d.", str, sep, str_arr.len()));
+    try {
+        local vec = Vector(str_arr[0].tofloat(), str_arr[1].tofloat(), str_arr[2].tofloat())
+        return vec
+    }
+    catch(ex) {
+        throw(format("macros.StrToVec: Failed to convert components of string '%s' to numbers. Details: %s", str, ex));
+    }
+
 }
 
 /*
@@ -4510,7 +5152,7 @@ macros["CreateAlias"] <- function(key, action) {
  * @param {any} val2 - The second value.
  * @returns {boolean} - True if the values are equal, false otherwise. 
 */
-macros["isEqually"] <- function(val1, val2) {
+macros["IsEqual"] <- function(val1, val2) {
     if((typeof val1 == "instance" || typeof val2 == "instance") && (val1 instanceof CBaseEntity || val2 instanceof CBaseEntity)) 
         return val1.entindex() == val2.entindex()
     
@@ -4520,13 +5162,13 @@ macros["isEqually"] <- function(val1, val2) {
         case "float": 
             return math.round(val1, 1000) == math.round(val2, 1000)
         case "Vector": 
-            return math.vector.isEqually(val1, val2)
+            return math.vector.IsEqual(val1, val2)
         case "instance": 
             return val1 == val2; 
         case "Quaternion": 
         case "Matrix": 
         case "pcapEntity": 
-            return val1.isEqually(val2)  
+            return val1.IsEqual(val2)  
     }
 }
 
@@ -4537,16 +5179,22 @@ macros["isEqually"] <- function(val1, val2) {
  * @param {table|array|ArrayEx|List} container - The container to be copied.
  * @returns {table|array|ArrayEx|List} - A deep copy of the container.
 */
-macros["DeepCopy"] <- function(container) { 
+macros["DeepCopy"] <- function(container, _ = null) { 
     switch (typeof container) {
         case "table": 
             local result = clone container; 
             foreach( k,v in container) result[k] = macros.DeepCopy(v); 
             return result; 
+        
         case "array": 
+            local a = array(container.len());
+            for (local i=0; i<container.len(); i++) a[i] = macros.DeepCopy(container[i]);
+            return a;
+
         case "ArrayEx": 
         case "List":
             return container.map(macros.DeepCopy); 
+        
         default: return container; 
     }
 }
@@ -4667,12 +5315,12 @@ macros["PointInBBox"] <- function(point, bMin, bMax) {
 macros["PointInBounds"] <- function(point) {
     local m = 64000
     return (
-        TraceLine(point, point + Vector(m, 0, 0), null) == 1.0 ||
-        TraceLine(point, point - Vector(m, 0, 0), null) == 1.0 ||
-        TraceLine(point, point + Vector(0, m, 0), null) == 1.0 ||
-        TraceLine(point, point - Vector(0, m, 0), null) == 1.0 || 
-        TraceLine(point, point + Vector(0, 0, m), null) == 1.0 ||
-        TraceLine(point, point - Vector(0, 0, m), null) == 1.0
+        TraceLine(point, point + Vector(m, 0, 0), null) >= 0.98 ||
+        TraceLine(point, point - Vector(m, 0, 0), null) >= 0.98 ||
+        TraceLine(point, point + Vector(0, m, 0), null) >= 0.98 ||
+        TraceLine(point, point - Vector(0, m, 0), null) >= 0.98 || 
+        TraceLine(point, point + Vector(0, 0, m), null) >= 0.98 ||
+        TraceLine(point, point - Vector(0, 0, m), null) >= 0.98
     ) == false
 }
 
@@ -4691,7 +5339,13 @@ macros["PointInBounds"] <- function(point) {
  *   * `animSetting` {table} (optional) - A table of additional animation settings. See the `AnimEvent` constructor for details.
 */
 macros["BuildAnimateFunction"] <- function(name, propertySetterFunc, valueCalculator = null) {
+    if (typeof propertySetterFunc != "function") throw("macros.BuildAnimateFunction: 'propertySetterFunc' must be a function, but got " + typeof propertySetterFunc);
+    if (valueCalculator != null && typeof valueCalculator != "function") throw("macros.BuildAnimateFunction: 'valueCalculator' must be a function or null, but got " + typeof valueCalculator);
+
     return function(entities, startValue, endValue, time, animSetting = {}) : (name, propertySetterFunc, valueCalculator) {
+        if(!entities) throw(name+" Anim: entities cannot be null")
+        if(time <= 0) throw(name+" Anim: time must be positive")
+    
         local animSetting = AnimEvent(name, animSetting, entities, time) 
         local varg = {
             start = startValue,
@@ -4702,7 +5356,7 @@ macros["BuildAnimateFunction"] <- function(name, propertySetterFunc, valueCalcul
         animate.applyAnimation(
             animSetting,
             valueCalculator ? valueCalculator : function(step, steps, v) {return v.start + v.delta * v.easeFunc(step / steps)},
-            propertySetterFunc
+            propertySetterFunc,
             varg
         ) 
 
@@ -4725,7 +5379,7 @@ macros["BuildRTAnimateFunction"] <- function(name, propertySetterFunc, valueCalc
         animate.applyRTAnimation(
             animSetting,
             valueCalculator ? valueCalculator : function(step, steps, v) {return v.start + v.delta * v.easeFunc(step / steps)},
-            propertySetterFunc
+            propertySetterFunc,
             varg
         ) 
 
@@ -4735,16 +5389,16 @@ macros["BuildRTAnimateFunction"] <- function(name, propertySetterFunc, valueCalc
 // Collides with everything.
 const COLLISION_GROUP_NONE = 0
 
-// Small objects, doesn't interfere with gameplay.
+// Collides with nothing but world and static stuff.
 const COLLISION_GROUP_DEBRIS = 1
 
-// Like DEBRIS, but ignores PUSHAWAY.
+// Same as debris, but hits triggers.
 const COLLISION_GROUP_DEBRIS_TRIGGER = 2 
 
 // Like DEBRIS, but doesn't collide with same group.
 const COLLISION_GROUP_INTERACTIVE_DEBRIS = 3
 
-// Interactive entities, ignores debris.
+// Collides with everything except interactive debris or debris.
 const COLLISION_GROUP_INTERACTIVE = 4
 
 // Used by players, ignores PASSABLE_DOOR.
@@ -4792,8 +5446,20 @@ const COLLISION_GROUP_NPC_ACTOR = 18
 // NPCs in scripted sequences with collisions disabled. 
 const COLLISION_GROUP_NPC_SCRIPTED = 19
 
-// Default Portal 2 collision
-const COLLISION_GROUP_DEFAULT = 24
+// It doesn't seem to be used anywhere in the engine.
+const COLLISION_GROUP_PZ_CLIP = 20
+
+// Solid only to the camera's test trace (Outdated).
+const COLLISION_GROUP_CAMERA_SOLID = 21
+
+// Solid only to the placement tool's test trace (Outdated).
+const COLLISION_GROUP_PLACEMENT_SOLID = 22
+
+// Held objects that shouldn't collide with players.
+const COLLISION_GROUP_PLAYER_HELD = 23
+
+// Cubes need a collision group that acts roughly like COLLISION_GROUP_NONE but doesn't collide with debris or interactive.
+const COLLISION_GROUP_WEIGHTED_CUBE = 24
 
 // No collision at all.
 const SOLID_NONE = 0 
@@ -4818,6 +5484,7 @@ const SOLID_VPHYSICS = 6
 if("AllPlayers" in getroottable()) return
 
 ::AllPlayers <- ArrayEx()
+const PLAYER_DEATH_MARKER = -999
 
 /* 
  * Gets an array of all players in the game. 
@@ -4859,37 +5526,41 @@ if("AllPlayers" in getroottable()) return
  * for dead players and schedules their respawn logic.
 */
 ::HandlePlayerEventsMP <- function() {
-    foreach(player in AllPlayers){
+    local playersToRemove = []
+    foreach(idx, player in AllPlayers){
         if(!player.IsValid()) {
             OnPlayerLeft(player)
-            AllPlayers.remove(AllPlayers.search(player))
+            playersToRemove.append(idx)
             continue
         }
+        
+        if(player.GetHealth() > 0 || player.GetHealth() == PLAYER_DEATH_MARKER) continue
 
-        if(player.GetHealth() > 0 || player.GetHealth() == -999) continue
-
-        OnDeath(player)
-        ScheduleEvent.Add("global", _monitorRespawn, 0, null, player)
-        player.SetHealth(-999)
+        OnPlayerDeath(player)
+        ScheduleEvent.AddInterval("global", _monitorRespawn, 0.3, 0, null, player)
+        player.SetHealth(PLAYER_DEATH_MARKER)
     }
+
+    if(playersToRemove.len() > 0) {
+        for(local i = playersToRemove.len() - 1; i >= 0; i--) {
+            AllPlayers.remove(playersToRemove[i])
+        }        
+    } 
 }
 
 ::HandlePlayerEventsSP <- function() {
     local h = AllPlayers[0].GetHealth()
-    if(h > 0 || h == -999) return
+    if(h > 0 || h == PLAYER_DEATH_MARKER) return
     OnPlayerDeath(AllPlayers[0])
-    AllPlayers[0].SetHealth(-999)
+    AllPlayers[0].SetHealth(PLAYER_DEATH_MARKER)
 }
 
 /* 
  * Monitors player respawn status. 
 */
 function _monitorRespawn() {
-    while(true) {
-        if(this.GetHealth() > 0)
-            return OnPlayerRespawn(this)
-        yield 0.3
-    }
+    if(this.GetHealth() > 0)
+        return OnPlayerRespawn(this)
 }
 
 
@@ -4927,10 +5598,11 @@ function OnPlayerJoined(player) {}
 function OnPlayerLeft(player) {}
 function OnPlayerDeath(player) {}
 function OnPlayerRespawn(player) {}
+ScheduleEvent.Add("global", function() {
 commands_separator <- ",\n"
 
 // Basic information
-macros.CreateCommand("PCapLib_version", "script printl(::_lib_version_)")
+macros.CreateCommand("PCapLib_version", "script printl(::LIB_VERSION)")
 
 // Logger level control commands
 macros.CreateCommand("PCapLib_level_trace", "script ::LibLogger = LoggerLevels.Trace")
@@ -4950,10 +5622,11 @@ macros.CreateCommand("PCapLib_players_list", "script printl(AllPlayers.join(comm
 
 // Simple debug commands
 macros.CreateCommand("script_FrameTime", "script printl(FrameTime())")
-
+}, 1, null, this)
 
 ::LibLogger <- LoggerLevels.Info
-const ALWAYS_PRECACHED_MODEL = "models/weapons/w_portalgun.mdl" // needed for pcapEntity::EmitSoundEx
+::MAX_PORTAL_CAST_DEPTH <- 4
+::ALWAYS_PRECACHED_MODEL <- "models/weapons/w_portalgun.mdl" // needed for pcapEntity::EmitSoundEx
 
 /*+--------------------------------------------------------------------------------+
 |                           PCapture Vscripts Library                              |
@@ -4976,9 +5649,15 @@ const ALWAYS_PRECACHED_MODEL = "models/weapons/w_portalgun.mdl" // needed for pc
     Cheap = null,
     Bbox = null,
 }
-::TracePlusIgnoreEnts <- {}
 
-const MAX_PORTAL_CAST_DEPTH = 4
+::USE_LEGACY_BBOXCAST_ANALYZER <- false
+
+function TracePlus::InvalidateEntity(ent) {
+    local idx = ent.entindex()
+    if(idx in EntBufferTable) {
+        EntBufferTable[idx].lastFrameTime = -1
+    }
+}
 
 local results = TracePlus["Result"]
 
@@ -5023,7 +5702,7 @@ results["Cheap"] <- class {
      *
      * @returns {Vector} - The hit position. 
     */
-    function GetHitpos() {
+    function GetHitPos() {
         return this.hitpos
     }
 
@@ -5046,12 +5725,13 @@ results["Cheap"] <- class {
     }
 
     /*
-     * Gets the direction vector of the trace.
+     * Gets the normalized direction vector of the trace.
      *
      * @returns {Vector} - The direction vector.
     */
     function GetDir() {
-        return (this.GetEndPos() - this.GetStartPos())
+        local dir = (this.traceHandler.endpos - this.traceHandler.startpos); dir.Norm()
+        return dir
     }
 
     /*
@@ -5073,7 +5753,7 @@ results["Cheap"] <- class {
         for(local trace = this; trace = trace.portalEntryInfo;) {
             list.append(trace)
         }
-        return list
+        return list.reverse()
     }
 
     /*
@@ -5086,13 +5766,13 @@ results["Cheap"] <- class {
         if(this.surfaceNormal)
             return this.surfaceNormal
         
-        this.surfaceNormal = CalculateImpactNormal(this.GetStartPos(), this.hitpos)
+        this.surfaceNormal = CalculateImpactNormal(this.traceHandler.startpos, this.hitpos)
         return this.surfaceNormal 
     } 
 
     function _typeof() return "TraceResult"
     function _tostring() {
-        return "TraceResult | startpos: " + GetStartPos() + ", endpos: " + GetEndPos() + ", fraction: " + GetFraction() + ", hitpos: " + GetHitpos()
+        return "TraceResult | startpos: " + GetStartPos() + ", endpos: " + GetEndPos() + ", fraction: " + GetFraction() + ", hitpos: " + GetHitPos()
     }
 }
 
@@ -5144,7 +5824,7 @@ results["Bbox"] <- class {
      *
      * @returns {Vector} - The hit position. 
     */
-    function GetHitpos() {
+    function GetHitPos() {
         return this.hitpos
     }
 
@@ -5186,15 +5866,6 @@ results["Bbox"] <- class {
     }
 
     /*
-     * Gets the note associated with the trace.
-     *
-     * @returns {string|null} - The trace note, or null if no note was provided.
-    */
-    function GetNote() {
-        return this.traceHandler.note
-    }
-
-    /*
      * Checks if the trace hit anything.
      *
      * @returns {boolean} - True if the trace hit something, false otherwise.
@@ -5218,16 +5889,17 @@ results["Bbox"] <- class {
      * @returns {number} - The hit fraction. 
     */
     function GetFraction() {
-        return macros.GetDist(this.GetStartPos(), this.GetHitpos()) / macros.GetDist(this.GetStartPos(), this.GetEndPos())
+        return macros.GetDist(this.traceHandler.startpos, this.hitpos) / macros.GetDist(this.traceHandler.startpos, this.traceHandler.endpos)
     }
 
     /*
-     * Gets the direction vector of the trace.
+     * Gets the normalized direction vector of the trace.
      *
      * @returns {Vector} - The direction vector.
     */
     function GetDir() {
-        return (this.GetEndPos() - this.GetStartPos())
+        local dir = (this.traceHandler.endpos - this.traceHandler.startpos); dir.Norm()
+        return dir
     }
 
     /*
@@ -5274,15 +5946,18 @@ results["Bbox"] <- class {
 
     function _typeof() return "BboxTraceResult"
     function _tostring() {
-        return "TraceResult | startpos: " + GetStartPos() + ", endpos: " + GetEndPos() + ", hitpos: " + GetHitpos() + ", entity: " + GetEntity()
+        return "TraceResult | startpos: " + GetStartPos() + ", endpos: " + GetEndPos() + ", hitpos: " + GetHitPos() + ", entity: " + GetEntity()
     }
 }
 /*
  * Settings for ray traces.
 */
 TracePlus["Settings"] <- class {
+    id = null;
+    ignoreAllClasses = false;
+    
     // An array of entity classnames to ignore during traces. 
-    ignoreClasses = ArrayEx("viewmodel", "weapon_", "beam",
+    ignoreClasses = ArrayEx("viewmodel", "weapon_", "beam", "light",
         "trigger_", "phys_", "env_", "point_", "info_", "vgui_", "logic_",
         "clone", "prop_portal", "portal_base2D", "func_clip", "func_instance",
         "func_portal_detector", 
@@ -5310,6 +5985,7 @@ TracePlus["Settings"] <- class {
     */
     function new(settingsTable = {}) {
         local result = TracePlus.Settings()
+        result.id = UniqueString("TracePlus")
 
         // Set the ignoreClasses setting from the settings table or use the default. 
         result.SetIgnoredClasses(macros.GetFromTable(settingsTable, "ignoreClasses", TracePlus.Settings.ignoreClasses))
@@ -5323,8 +5999,9 @@ TracePlus["Settings"] <- class {
         // Set the shouldIgnoreEntity setting from the settings table or use the default. 
         result.SetIgnoreFilter(macros.GetFromTable(settingsTable, "shouldIgnoreEntity", null))
 
-        // todo comment
+        // Set the depth accuracy for the BBox trace. Lower values are more precise for hitting thin objects but cost more performance. Default is 5.
         result.SetDepthAccuracy(macros.GetFromTable(settingsTable, "depthAccuracy", 5))
+        // Enable or disable binary refinement. This performs an extra search step to get a more accurate hit position, which is vital for calculating correct surface normals. Default is false.
         result.SetBynaryRefinement(macros.GetFromTable(settingsTable, "bynaryRefinement", false))
         
         return result
@@ -5337,7 +6014,11 @@ TracePlus["Settings"] <- class {
      * @param {array|ArrayEx} ignoreClassesArray - An array or ArrayEx containing entity classnames to ignore. 
     */
     function SetIgnoredClasses(ignoreClassesArray) {
+        if(typeof ignoreClassesArray != "array" && typeof ignoreClassesArray != "ArrayEx") throw("TracePlus.Settings.SetIgnoredClasses: Invalid argument type. Expected an 'array' or 'ArrayEx', but got " + typeof ignoreClassesArray)
+
         this.ignoreClasses = ArrayEx.FromArray(ignoreClassesArray)
+        this.ignoreAllClasses = this.ignoreClasses && this.ignoreClasses.contains("*")
+        
         return this
     }
 
@@ -5347,6 +6028,8 @@ TracePlus["Settings"] <- class {
      * @param {array|ArrayEx} priorityClassesArray - An array or ArrayEx containing entity classnames to prioritize. 
     */
     function SetPriorityClasses(priorityClassesArray) {
+        if(typeof priorityClassesArray != "array" && typeof priorityClassesArray != "ArrayEx") throw("TracePlus.Settings.SetPriorityClasses: Invalid argument type. Expected an 'array' or 'ArrayEx', but got " + typeof priorityClassesArray)
+
         this.priorityClasses = ArrayEx.FromArray(priorityClassesArray)
         return this
     }
@@ -5357,6 +6040,8 @@ TracePlus["Settings"] <- class {
      * @param {array|ArrayEx} ignoredModelsArray - An array or ArrayEx containing entity model names to ignore. 
     */
     function SetIgnoredModels(ignoredModelsArray) {
+        if(typeof ignoredModelsArray != "array" && typeof ignoredModelsArray != "ArrayEx") throw("TracePlus.Settings.SetIgnoredModels: Invalid argument type. Expected an 'array' or 'ArrayEx', but got " + typeof ignoredModelsArray)
+
         this.ignoredModels = ArrayEx.FromArray(ignoredModelsArray)
         return this
     }
@@ -5377,11 +6062,15 @@ TracePlus["Settings"] <- class {
      * @param {string} className - The classname to append. 
     */
     function AppendIgnoredClass(className) {
+        if(typeof className != "string") throw("TracePlus.Settings.AppendIgnoredClass: Invalid argument type. Expected a 'string', but got " + typeof className)
+
         // CoW Mechanism
         if(this.ignoreClasses == TracePlus.Settings.ignoreClasses)
-            this.ignoreClasses = clone this.ignoreClasses
+            this.ignoreClasses = this.ignoreClasses.Clone()
         
         this.ignoreClasses.append(className)
+        this.ignoreAllClasses = this.ignoreClasses && this.ignoreClasses.contains("*")
+        
         return this
     }
 
@@ -5391,9 +6080,11 @@ TracePlus["Settings"] <- class {
      * @param {string} className - The classname to append. 
     */
     function AppendPriorityClasses(className) {
+        if(typeof className != "string") throw("TracePlus.Settings.AppendPriorityClasses: Invalid argument type. Expected a 'string', but got " + typeof className)
+
         // CoW Mechanism
         if(this.priorityClasses == TracePlus.Settings.priorityClasses)
-            this.priorityClasses = clone this.priorityClasses
+            this.priorityClasses = this.priorityClasses.Clone()
         
         this.priorityClasses.append(className)
         return this
@@ -5405,15 +6096,15 @@ TracePlus["Settings"] <- class {
      * @param {string} modelName - The model name to append. 
     */
     function AppendIgnoredModel(modelName) {
+        if(typeof modelName != "string") throw("TracePlus.Settings.AppendIgnoredModel: Invalid argument type. Expected a 'string', but got " + typeof modelName)
+
         // CoW Mechanism
         if(this.ignoredModels == TracePlus.Settings.ignoredModels)
-            this.ignoredModels = clone this.ignoredModels
+            this.ignoredModels = this.ignoredModels.Clone()
 
         this.ignoredModels.append(modelName)
         return this
     }
-
-
 
     /* 
      * Gets the list of entity classnames to ignore during traces. 
@@ -5484,22 +6175,20 @@ TracePlus["Settings"] <- class {
      * Applies the custom collision filter function to an entity. 
      *
      * @param {CBaseEntity|pcapEntity} entity - The entity to check.
-     * @param {string|null} note - An optional note associated with the trace.
      * @returns {boolean} - True if the ray should hit the entity, false otherwise. 
     */
-    function ApplyCollisionFilter(entity, note) {
-        return this.shouldRayHitEntity ? this.shouldRayHitEntity(entity, note) : false
+    function ApplyCollisionFilter(entity) {
+        return this.shouldRayHitEntity ? this.shouldRayHitEntity(entity) : false
     }
 
     /*
      * Applies the custom ignore filter function to an entity. 
      *
      * @param {CBaseEntity|pcapEntity} entity - The entity to check.
-     * @param {string|null} note - An optional note associated with the trace.
      * @returns {boolean} - True if the entity should be ignored, false otherwise. 
     */
-    function ApplyIgnoreFilter(entity, note) {
-        return this.shouldIgnoreEntity ? this.shouldIgnoreEntity(entity, note) : false
+    function ApplyIgnoreFilter(entity) {
+        return this.shouldIgnoreEntity ? this.shouldIgnoreEntity(entity) : false
     }
 
     /*
@@ -5529,17 +6218,21 @@ TracePlus["Settings"] <- class {
         return ignoreEntities
     }
 
-    function _typeof() return "TraceSettings"
-    function _cloned() {
-        return TracePlus.Settings()
-            .SetIgnoredClasses(clone this.ignoreClasses)
-            .SetPriorityClasses(clone this.priorityClasses)
-            .SetIgnoredModels(clone this.ignoredModels)
+    function Clone() {
+        local set = TracePlus.Settings()
+            .SetIgnoredClasses(this.ignoreClasses.Clone())
+            .SetPriorityClasses(this.priorityClasses.Clone())
+            .SetIgnoredModels(this.ignoredModels.Clone())
             .SetCollisionFilter(this.shouldRayHitEntity)
             .SetIgnoreFilter(this.shouldIgnoreEntity)
             .SetBynaryRefinement(this.bynaryRefinement)
             .SetDepthAccuracy(this.depthAccuracy)
+        set.id = this.id
+        return set
     }
+
+    function _typeof() return "TraceSettings"
+    function _cloned() return this.Clone()
 }
 TracePlus.defaultSettings = TracePlus.Settings.new()
 
@@ -5586,21 +6279,37 @@ TracePlus["FromEyes"]["Cheap"] <- function(distance, player) {
  * @param {Vector} endPos - The end position of the trace.
  * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. (optional)
  * @param {TraceSettings} settings - The settings to use for the trace. (optional, defaults to TracePlus.defaultSettings) 
- * @param {string|null} note - An optional note associated with the trace. 
  * @returns {BboxTraceResult} - The trace result object. 
 */
-TracePlus["Bbox"] <- function(startPos, endPos, ignoreEntities = null, settings = TracePlus.defaultSettings, note = null) {
+TracePlus["Bbox"] <- function(startPos, endPos, ignoreEntities = null, settings = TracePlus.defaultSettings) {
+    if(typeof startPos != "Vector") throw("TracePlus.Bbox: 'startPos' argument must be a Vector, but got " + typeof startPos);
+    if(typeof endPos != "Vector") throw("TracePlus.Bbox: 'endPos' argument must be a Vector, but got " + typeof endPos);
+    if(typeof settings != "TraceSettings")  throw("TracePlus.Bbox: 'settings' argument must be a TraceSettings, but got " + typeof settings);
+    if(ignoreEntities != null) {
+        local ignoreType = typeof ignoreEntities;
+        if (ignoreType == "array" || ignoreType == "ArrayEx" || ignoreType == "List") {
+            foreach(idx, ent in ignoreEntities) {
+                if(!ent || !ent.IsValid()) throw(format("TracePlus.Bbox: 'ignoreEntities' array/list contains a not-valid entity at index %d", idx))
+                if (typeof ent != "pcapEntity" && !(ent instanceof CBaseEntity)) {
+                    throw(format("TracePlus.Bbox: 'ignoreEntities' array/list contains a non-entity value at index %d (got %s). It must contain only entity handles.", idx, typeof ent));
+                }
+            }
+        } else if (ignoreType != "pcapEntity" && !(ignoreEntities instanceof CBaseEntity)) {
+            throw("TracePlus.Bbox: 'ignoreEntities' argument must be an entity handle, an array/list of entities, or null, but got " + ignoreType);
+        }
+    }
+
     local SCOPE = {} // TODO potential place for improvement
     
     SCOPE.startpos <- startPos;
     SCOPE.endpos <- endPos;
     SCOPE.ignoreEntities <- ignoreEntities 
     SCOPE.settings <- settings
-    SCOPE.note <- note
 
-    local result = TraceLineAnalyzer(startPos, endPos, ignoreEntities, settings, note)
+    local BboxAnalyzer = USE_LEGACY_BBOXCAST_ANALYZER ? LegacyBboxAnalyzer : BboxTraceAnalyzer
+    local result = BboxAnalyzer(startPos, endPos, ignoreEntities, settings)
     
-    return TracePlus.Result.Bbox(SCOPE, result.GetHitpos(), result.GetEntity())
+    return TracePlus.Result.Bbox(SCOPE, result.hitpos, result.hitent)
 }
 
 /*
@@ -5667,13 +6376,13 @@ TracePlus["PortalCheap"] <- function(startPos, endPos) {
         local traceData = TracePlus.Cheap(startPos, endPos)
         traceData.portalEntryInfo = previousTraceData
 
-        local hitPos = traceData.GetHitpos()
+        local hitPos = traceData.GetHitPos()
         length -= (hitPos - startPos).Length()
 
         // Find a nearby portal entity. 
-        local portal = entLib.FindByClassnameWithin("prop_portal", hitPos, 1) 
+        local portal = entLib.FindByClassnameWithin("prop_portal", hitPos, 5) 
         if(!portal)
-            portal = entLib.FindByClassnameWithin("linked_portal_door", hitPos, 1)
+            portal = entLib.FindByClassnameWithin("linked_portal_door", hitPos, 10)
         if(!portal)
             return traceData
 
@@ -5719,18 +6428,17 @@ TracePlus["PortalCheap"] <- function(startPos, endPos) {
  * @param {Vector} endPos - The end position of the trace.
  * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. (optional) 
  * @param {TraceSettings} settings - The settings to use for the trace. (optional, defaults to TracePlus.defaultSettings) 
- * @param {any|null} note - An optional note associated with the trace. 
  * @returns {BboxTraceResult} - The trace result object, including information about portal entries.
 */
-TracePlus["PortalBbox"] <- function(startPos, endPos, ignoreEntities = null, settings = TracePlus.defaultSettings, note = null) {
+TracePlus["PortalBbox"] <- function(startPos, endPos, ignoreEntities = null, settings = TracePlus.defaultSettings) {
     local length = (endPos - startPos).Length()
     local previousTraceData 
     // Portal castings
     for (local i = 0; i < MAX_PORTAL_CAST_DEPTH; i++) {
-        local traceData = TracePlus.Bbox(startPos, endPos, ignoreEntities, settings, note)
+        local traceData = TracePlus.Bbox(startPos, endPos, ignoreEntities, settings)
         traceData.portalEntryInfo = previousTraceData 
 
-        local hitPos = traceData.GetHitpos()
+        local hitPos = traceData.GetHitPos()
         local portal = traceData.GetEntity()
         length -= (hitPos - startPos).Length()
 
@@ -5740,8 +6448,10 @@ TracePlus["PortalBbox"] <- function(startPos, endPos, ignoreEntities = null, set
             return traceData 
         
         local partnerPortal = portal.GetPartnerInstance()
-        if (partnerPortal == null) 
+        if (partnerPortal == null) {
+            dev.warning("Portal {} doesn't have a partner ;(", portal)
             return traceData 
+        }
         
         if(portal.GetUserData("TracePlusIgnore") || partnerPortal.GetUserData("TracePlusIgnore"))
             return traceData
@@ -5757,7 +6467,7 @@ TracePlus["PortalBbox"] <- function(startPos, endPos, ignoreEntities = null, set
         // Calculate new start and end positions for the trace after passing through the portal.  
         local ray = _ApplyPortal(startPos, hitPos, length, portal, partnerPortal);
         // Adjust the start position slightly to prevent the trace from getting stuck. 
-        startPos = ray.startPos + partnerPortal.GetForwardVector() 
+        startPos = ray.startPos + partnerPortal.GetForwardVector() * 7 // Workaround to avoid the TraceLine starting inside a wall.
         endPos = ray.endPos
         previousTraceData = traceData 
     }
@@ -5771,134 +6481,581 @@ TracePlus["PortalBbox"] <- function(startPos, endPos, ignoreEntities = null, set
  * @param {CBaseEntity|pcapEntity} player - The player entity.
  * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. (optional)
  * @param {TraceSettings} settings - The settings to use for the trace. (optional, defaults to TracePlus.defaultSettings) 
- * @param {any|null} note - An optional note associated with the trace. 
  * @returns {BboxTraceResult} - The trace result object. 
 */
- TracePlus["FromEyes"]["PortalBbox"] <- function(distance, player, ignoreEntities = null, settings = TracePlus.defaultSettings, note = null) {
+ TracePlus["FromEyes"]["PortalBbox"] <- function(distance, player, ignoreEntities = null, settings = TracePlus.defaultSettings) {
     // Calculate the start and end positions of the trace
     local startPos = player.EyePosition()
     local endPos = macros.GetEyeEndpos(player, distance)
     ignoreEntities = TracePlus.Settings.UpdateIgnoreEntities(ignoreEntities, player)
 
     // Perform the bboxcast trace and return the trace result
-    return TracePlus.PortalBbox(startPos, endPos, ignoreEntities, settings, note)
+    return TracePlus.PortalBbox(startPos, endPos, ignoreEntities, settings)
 }
 
-// Expensive/Precise TraceLine logic
-
-// Class for storing object data, for optimization purposes
+// Enhanced entity cache with aggressive caching
 class BufferedEntity {
+    // todo: if this well be global and bbox will be changed, stuff broke
     entity = null;
     origin = null;
     bboxMax = null;
     bboxMin = null;
-    ignoreMe = false;
 
-    constructor(entity) {
+    // Cached rounded origin
+    roundedOriginX = null;
+    roundedOriginY = null;
+    roundedOriginZ = null;
+    
+    // Cached expensive C++ calls
+    classname = null;
+    modelname = null;
+    entindex = null;
+    
+    // Optimization flags
+    ignoreChecksCalc = false;
+    skipEntity = false;
+    
+    // Cache for shouldHitEntity
+    cachedShouldHit = null;
+    cachedTraceId = null;  // ID of last trace
+    // cachedSettingsId = null; // todo: maybe for future improvements
+
+    constructor(entity) { 
         this.entity = entLib.FromEntity(entity)
-        this.origin = entity.GetCenter() // lmao, origin == center
+        this.entindex = entity.entindex()  // Cache once!
+        this.origin = entity.GetOrigin()
+        this.classname = entity.GetClassname()  // Cache once!
+        this.modelname = entity.GetModelName()  // Cache once!
+
+        // round and CACHE!
+        this.roundedOriginX = floor(this.origin.x * 1000.0 + 0.5)
+        this.roundedOriginY = floor(this.origin.y * 1000.0 + 0.5)
+        this.roundedOriginZ = floor(this.origin.z * 1000.0 + 0.5)
+
+        // perhaps for future improvements
+        // cachedSettingsId = id
         
         // This is needed for optimization with avoiding a lot of quaternion rotations
-        local _origin = entity.GetOrigin()
-        if(this.entity.IsSquareBbox()) { // bbox square
-            this.bboxMax = entity.GetBoundingMaxs() + _origin
-            this.bboxMin = entity.GetBoundingMins() + _origin
+        if(this.entity.IsSquareBbox()) {
+            this.bboxMax = entity.GetBoundingMaxs() + origin
+            this.bboxMin = entity.GetBoundingMins() + origin
         }
-        else { // bbox rectangular
-            this.bboxMax = this.entity.CreateAABB(7) + _origin
-            this.bboxMin = this.entity.CreateAABB(0) + _origin
+        else {
+            this.bboxMax = this.entity.CreateAABB(7) + origin
+            this.bboxMin = this.entity.CreateAABB(0) + origin
         }
     }
-    function IsValid() return this.entity.IsValid()
+    
     function _tostring() return this.entity.tostring()
 }
 
-const JumpPercent = 0.25
 ::EntBufferTable <- {} // To avoid repeated operations on objects that do not change their position.
+::_traceIdCounter <- 0 
 
 /*
  * A class for performing precise trace line analysis. 
  * 
  * This class provides methods for tracing lines with more precision and considering entity priorities and ignore settings. 
 */
-::TraceLineAnalyzer <- class {
+::BboxTraceAnalyzer <- class {
     settings = null;
     hitpos = null;
     hitent = null;
-    eqVecFunc = math.vector.isEqually;
+    hitnormal = null; // todo: this is cheap normal, but only for axis-box. How can i use it? no clue
+    traceId = null;  
 
     /*
-     * Constructor for TraceLineAnalyzer.
+     * Constructor for BboxTraceAnalyzer.
      *
      * @param {Vector} startpos - The start position of the trace.
      * @param {Vector} endpos - The end position of the trace.
      * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
      * @param {TraceSettings} settings - The settings to use for the trace. 
-     * @param {string|null} note - An optional note associated with the trace. 
     */ 
-    constructor(startpos, endpos, ignoreEntities, settings, note) {
+    constructor(startpos, endpos, ignoreEntities, settings) {
+        if(typeof settings != "TraceSettings") throw("Invalid trace settings provided. Expected an instance of TracePlus.Settings")
+        this.settings = settings
+        this.traceId = _traceIdCounter++
+        
+        local result = this.Trace(startpos, endpos, ignoreEntities)
+        this.hitpos = result[0]
+        this.hitent = result[1]
+        // this.hitnormal = result[2]
+    }
+
+    function Trace(startPos, endPos, ignoreEntities) array(hitPos, hitEnt, hitNormal) 
+    function shouldHitEntityCached(BEnt, ignoreEntities) bool
+    function _isPriorityEntity(classname) bool
+    function _isIgnoredEntity(classname) bool
+    function _isIgnoredModels(modelname) bool
+}
+
+/*
+ * Performs a precise trace line analysis using analytical ray-AABB intersection. 
+ *
+ * This method subdivides the trace into segments and uses the slab method to find
+ * exact intersection points with entity bounding boxes.
+ * 
+ * @param {Vector} startPos - The start position of the trace.
+ * @param {Vector} endPos - The end position of the trace.
+ * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
+ * @returns {array} - An array containing [hitPos, hitEntity, hitNormal]. 
+*/
+function BboxTraceAnalyzer::Trace(startPos, endPos, ignoreEntities) {
+    // Preventing VScript errors and ensuring correct results even with a broken TraceLine
+    if(macros.PointInBounds(startPos) == false) return [startPos, null, null]
+
+    // Get the hit position from the fast trace
+    local hitPos = startPos + (endPos - startPos) * TraceLine(startPos, endPos, null)
+    local dist = hitPos - startPos
+
+    const JumpPercent = 0.25
+    const HalfJump = 0.125
+    local halfSegment = dist * HalfJump
+    local searchRadius = halfSegment.Length()
+    
+    // Use array instead of List for better performance [// todo: maybe create with some capacity, or use global one with shadowing indecies? \\]
+    local entBuffer = [] 
+    
+    // Pre-compute for quick ignore checks
+    local ignoreType = ignoreEntities ? typeof ignoreEntities : null
+    local singleIgnoreIdx = null
+    if(ignoreType && ignoreType != "array" && ignoreType != "ArrayEx" && ignoreType != "List") {
+        // if(ignoreType == "instance" || ignoreType == "pcapEntity") { 
+        try {
+            singleIgnoreIdx = ignoreEntities.entindex()
+        } catch(e) {}
+    }
+
+    // Pre-compute ignoreIdxSet for O(1) lookup
+    local ignoreIdxSet = {}
+    if(ignoreType == "array" || ignoreType == "ArrayEx") {
+        foreach(mask in ignoreEntities) ignoreIdxSet[mask.entindex()] <- true
+    } else if(ignoreType == "List") {
+        foreach(mask in ignoreEntities.iter()) ignoreIdxSet[mask.entindex()] <- true
+    }
+
+    dev.debug("========================= TRACE START =========================")
+    for(local segment = 0.0; segment < 1.0; segment += JumpPercent) {
+        //* "DIRTY" Search - collect candidate entities near the current segment
+        local segmentCenter = startPos + dist * (segment + HalfJump)
+        local segmentStart = segmentCenter - halfSegment
+        local segmentEnd = segmentCenter + halfSegment
+
+        for(local ent; ent = Entities.FindByClassnameWithin(ent, "*", segmentCenter, searchRadius);) {
+            local idx = ent.entindex()
+            
+            // == Avoid expensive shouldHitEntity == 
+            // 1. Quick single-entity ignore check
+            if(singleIgnoreIdx != null && idx == singleIgnoreIdx) continue
+            // 2.Entity should 'Ignore Trace' check // todo change comment
+            if((ent in TracePlusIgnoreEnts) && TracePlusIgnoreEnts[ent] == true) continue
+            // 3. Ignore entities set check
+            if(idx in ignoreIdxSet) continue
+
+            local BEnt = null
+            
+            // Optimized cache check with inline Vector comparison :p
+            if(idx in EntBufferTable) { 
+                BEnt = EntBufferTable[idx]
+                if(BEnt.entity.IsValid()) {
+                    local cachedOrigin = BEnt.origin
+                    local currentOrigin = ent.GetOrigin()
+                    
+                    // Inline rounded comparison
+                    local rx = floor(currentOrigin.x * 1000.0 + 0.5)
+                    local ry = floor(currentOrigin.y * 1000.0 + 0.5)
+                    local rz = floor(currentOrigin.z * 1000.0 + 0.5)
+                    if(BEnt.roundedOriginX == rx && 
+                        BEnt.roundedOriginY == ry && 
+                        BEnt.roundedOriginZ == rz) {
+                        // Cache hit - entity hasn't moved
+                    } else {
+                        // Position changed - rebuild cache
+                        BEnt = BufferedEntity(ent)
+                        BEnt.cachedTraceId = this.traceId
+                        EntBufferTable[idx] <- BEnt
+                    }
+                } else {
+                    // Weird... Invalid/outdated entity with same id - let's rebuild
+                    BEnt = BufferedEntity(ent)
+                    BEnt.cachedTraceId = this.traceId
+                    // BEnt.cachedSettingsId = this.settings.id
+                    EntBufferTable[idx] <- BEnt
+                }
+            } else {
+                // Not in cache - create new
+                BEnt = BufferedEntity(ent)
+                BEnt.cachedTraceId = this.traceId
+                EntBufferTable[idx] <- BEnt
+            }
+            
+            // Check shouldHitEntity, now with caching :}
+            if(!this.shouldHitEntityCached(BEnt)) continue
+            
+
+            // This handles the specific case where the trace starts *inside* an entity's bounding box.
+            if(segment == 0.0 && macros.PointInBBox(startPos, BEnt.bboxMin, BEnt.bboxMax)) {
+                BEnt.skipEntity = true
+                continue
+            }
+            if(BEnt.skipEntity) continue
+
+            // Quick broad-phase check
+            if(BEnt.ignoreChecksCalc || RayAabbIntersectFast(segmentStart, segmentEnd, BEnt.bboxMin, BEnt.bboxMax)) {
+                dev.debug("Added {}", BEnt.entity) // DEBUG
+                entBuffer.append(BEnt)
+            } else {
+                BEnt.ignoreChecksCalc = true
+            }
+        }
+
+        // The "dirty search" didn't turn up anything? Check the next segment
+        if(entBuffer.len() == 0) continue
+
+        //* Analytic narrow-phase: compute exact hit using 'slab method'
+        local bestT = 999999999.9
+        local bestEnt = null
+        local bestNormal = null
+
+        foreach(BEnt in entBuffer) {
+            // Get precise intersection data using optimized slab method [i actually unrolled loop, lol]
+            local res = RayAabbHitOptimized(segmentStart, segmentEnd, BEnt.bboxMin, BEnt.bboxMax)
+            if(!res[0]) continue
+
+            local tEnter = res[1]
+            // Clamp to valid range [0, 1]
+            if(tEnter < 0.0) tEnter = 0.0
+            else if(tEnter > 1.0) tEnter = 1.0
+
+            // Keep track of the closest hit
+            if(tEnter < bestT) {
+                bestT = tEnter
+                bestEnt = BEnt
+                bestNormal = res[3]
+            }
+        }
+
+        // If we found a hit in this segment, return immediately
+        if(bestEnt != null) {
+            local hitPoint = segmentStart + (segmentEnd - segmentStart) * bestT
+
+            // Optional: refine the hit point (only if needed and worth the cost)
+            if(this.settings.bynaryRefinement && bestT > 0.01 && bestT < 0.99) {
+                local refined = BinaryRefinementSearchFast(segmentStart, segmentEnd, bestEnt.bboxMin, bestEnt.bboxMax, bestT)
+                if(refined != null) hitPoint = refined
+            }
+            
+            return [hitPoint, bestEnt.entity, bestNormal]
+        }
+        
+        // Clear buffer for next segment
+        entBuffer.clear()
+    }
+
+    // No entity was hit; return world hit position
+    return [hitPos, null, null]
+}
+
+/*
+ * Optimized AABB intersection - unrolled loop, fewer operations.
+ * 
+ * @param {Vector} start - The start point of the ray segment.
+ * @param {Vector} end - The end point of the ray segment. 
+ * @param {Vector} bmin - The minimum corner of the AABB.
+ * @param {Vector} bmax - The maximum corner of the AABB.
+ * @returns {array} - [hit:boolean, t_enter:float, t_exit:float, normal:Vector|null]
+*/
+function RayAabbHitOptimized(start, end, bmin, bmax) {
+    // Pre-compute direction once
+    local dx = end.x - start.x
+    local dy = end.y - start.y  
+    local dz = end.z - start.z
+    const EPS = 0.000001
+
+    local tEnter = 0.0
+    local tExit = 1.0
+    local nAxis = -1
+    local nSign = 0.0
+
+    // Unrolled X axis
+    local adx = fabs(dx)
+    if(adx < EPS) {
+        if(start.x < bmin.x || start.x > bmax.x) return [false, 0, 0, null]
+    } else {
+        local invDx = 1.0 / dx
+        local t1 = (bmin.x - start.x) * invDx
+        local t2 = (bmax.x - start.x) * invDx
+        
+        if(t1 > t2) {
+            if(t2 > tEnter) { tEnter = t2; nAxis = 0; nSign = 1.0 }
+            if(t1 < tExit) tExit = t1
+        } else {
+            if(t1 > tEnter) { tEnter = t1; nAxis = 0; nSign = -1.0 }
+            if(t2 < tExit) tExit = t2
+        }
+        if(tEnter > tExit) return [false, 0, 0, null]
+    }
+
+    // Unrolled Y axis
+    local ady = fabs(dy)
+    if(ady < EPS) {
+        if(start.y < bmin.y || start.y > bmax.y) return [false, 0, 0, null]
+    } else {
+        local invDy = 1.0 / dy
+        local t1 = (bmin.y - start.y) * invDy
+        local t2 = (bmax.y - start.y) * invDy
+        
+        if(t1 > t2) {
+            if(t2 > tEnter) { tEnter = t2; nAxis = 1; nSign = 1.0 }
+            if(t1 < tExit) tExit = t1
+        } else {
+            if(t1 > tEnter) { tEnter = t1; nAxis = 1; nSign = -1.0 }
+            if(t2 < tExit) tExit = t2
+        }
+        if(tEnter > tExit) return [false, 0, 0, null]
+    }
+
+    // Unrolled Z axis
+    local adz = fabs(dz)
+    if(adz < EPS) {
+        if(start.z < bmin.z || start.z > bmax.z) return [false, 0, 0, null]
+    } else {
+        local invDz = 1.0 / dz
+        local t1 = (bmin.z - start.z) * invDz
+        local t2 = (bmax.z - start.z) * invDz
+        
+        if(t1 > t2) {
+            if(t2 > tEnter) { tEnter = t2; nAxis = 2; nSign = 1.0 }
+            if(t1 < tExit) tExit = t1
+        } else {
+            if(t1 > tEnter) { tEnter = t1; nAxis = 2; nSign = -1.0 }
+            if(t2 < tExit) tExit = t2
+        }
+        if(tEnter > tExit) return [false, 0, 0, null]
+    }
+
+    // Final range check
+    if(tExit < 0.0 || tEnter > 1.0) return [false, 0, 0, null]
+
+    // todo; Build cheap normal vector - only if we have a hit
+    // local n = Vector(0, 0, 0) 
+    // if(nAxis == 0) n.x = nSign
+    // else if(nAxis == 1) n.y = nSign
+    // else n.z = nSign
+
+    return [true, tEnter, tExit, null]
+}
+
+/*
+ * Fast AABB intersection check for broad phase (no normal calculation).
+ * 
+ * @param {Vector} start - Ray start point.
+ * @param {Vector} end - Ray end point.
+ * @param {Vector} bmin - AABB minimum.
+ * @param {Vector} bmax - AABB maximum.
+ * @returns {boolean} - True if intersection exists.
+*/
+function RayAabbIntersectFast(start, end, bmin, bmax) {
+    local dx = end.x - start.x
+    local dy = end.y - start.y
+    local dz = end.z - start.z
+    
+    local tmin = 0.0
+    local tmax = 1.0
+    
+    // X axis - optimized with early exit
+    if(dx != 0.0) {
+        local invDx = 1.0 / dx
+        local t1 = (bmin.x - start.x) * invDx
+        local t2 = (bmax.x - start.x) * invDx
+        if(t1 > t2) { local tmp = t1; t1 = t2; t2 = tmp }
+        if(t1 > tmin) tmin = t1
+        if(t2 < tmax) tmax = t2
+        if(tmin > tmax) return false
+    } else if(start.x < bmin.x || start.x > bmax.x) return false
+    
+    // Y axis
+    if(dy != 0.0) {
+        local invDy = 1.0 / dy
+        local t1 = (bmin.y - start.y) * invDy
+        local t2 = (bmax.y - start.y) * invDy
+        if(t1 > t2) { local tmp = t1; t1 = t2; t2 = tmp }
+        if(t1 > tmin) tmin = t1
+        if(t2 < tmax) tmax = t2
+        if(tmin > tmax) return false
+    } else if(start.y < bmin.y || start.y > bmax.y) return false
+    
+    // Z axis
+    if(dz != 0.0) {
+        local invDz = 1.0 / dz
+        local t1 = (bmin.z - start.z) * invDz
+        local t2 = (bmax.z - start.z) * invDz
+        if(t1 > t2) { local tmp = t1; t1 = t2; t2 = tmp }
+        if(t1 > tmin) tmin = t1
+        if(t2 < tmax) tmax = t2
+        if(tmin > tmax) return false
+    } else if(start.z < bmin.z || start.z > bmax.z) return false
+    
+    return true
+}
+
+/*
+ * Optimized binary refinement - fewer iterations, smarter window.
+ * 
+ * @param {Vector} rayStart - Ray segment start.
+ * @param {Vector} rayEnd - Ray segment end.
+ * @param {Vector} bMin - AABB minimum.
+ * @param {Vector} bMax - AABB maximum.
+ * @param {float} tEnter - Approximate entry point.
+ * @returns {Vector|null} - Refined hit point or null.
+*/
+function BinaryRefinementSearchFast(rayStart, rayEnd, bMin, bMax, tEnter) {
+    // Narrow window around tEnter
+    local dir = rayEnd - rayStart
+    local window = 0.03  // Smaller window = fewer checks
+    local leftT = tEnter - window
+    local rightT = tEnter + window
+    if(leftT < 0.0) leftT = 0.0
+    if(rightT > 1.0) rightT = 1.0
+    
+    local searchStart = rayStart + dir * leftT
+    local searchEnd = rayStart + dir * rightT
+    local searchDir = searchEnd - searchStart
+    
+    local closestHitPoint = null
+    local left = 0.0
+    local right = 1.0
+
+    // Reduced iterations: 6 instead of 10 (good enough precision)
+    for(local i = 0; i < 6; i++) {
+        local middle = (left + right) * 0.5  // Avoid division
+        local currentPoint = searchStart + searchDir * middle
+        
+        // Inline PointInBBox for speed
+        if(currentPoint.x >= bMin.x && currentPoint.x <= bMax.x &&
+           currentPoint.y >= bMin.y && currentPoint.y <= bMax.y &&
+           currentPoint.z >= bMin.z && currentPoint.z <= bMax.z) {
+            closestHitPoint = currentPoint
+            right = middle
+        } else {
+            left = middle
+        }
+    }
+    
+    return closestHitPoint
+}
+
+/*
+ * Cached version of shouldHitEntity to avoid redundant checks.
+ * 
+ * @param {BufferedEntity} BEnt - Buffered entity with cache.
+ * @returns {boolean} - True if should check for hit.
+*/
+function BboxTraceAnalyzer::shouldHitEntityCached(BEnt) {
+    // Try use cached result
+    if(BEnt.cachedTraceId == this.traceId && BEnt.cachedShouldHit != null) {
+        return BEnt.cachedShouldHit
+    }
+    
+    local ent = BEnt.entity.CBaseEntity
+    
+    // Settings filters
+    if(settings.ApplyIgnoreFilter(ent)) {
+        dev.debug("- {} IgnoreFilter", ent)
+        BEnt.cachedShouldHit = false
+        return false
+    }
+    
+    if(settings.ApplyCollisionFilter(ent)) {
+        dev.debug("- {} CollisionFilter", ent)
+        BEnt.cachedShouldHit = true
+        return true
+    }
+
+    // Use cached classname and modelname (no C++ calls!)
+    if(_isIgnoredEntity(BEnt.classname) && !_isPriorityEntity(BEnt.classname)) {
+        dev.debug("- {} _isIgnoredEntity", ent)
+        BEnt.cachedShouldHit = false
+        return false
+    }
+    
+    if(_isIgnoredModels(BEnt.modelname)) {
+        dev.debug("- {} _isIgnoredModels", ent)
+        BEnt.cachedShouldHit = false
+        return false
+    }
+
+    dev.debug("- {} none of all, then should!", ent)
+    BEnt.cachedShouldHit = true
+    return true
+}
+
+/*
+ * Check if entity class is in the priority list.
+ *
+ * @param {string} entityClass - Entity class name to check.
+ * @returns {boolean} True if entity class is prioritized.
+*/
+function BboxTraceAnalyzer::_isPriorityEntity(entityClass) {
+    if(settings.GetPriorityClasses().len() == 0) return false
+    return settings.GetPriorityClasses().search(function(v) : (entityClass) { 
+        return entityClass.find(v) >= 0 
+    }) != null
+}
+
+/* 
+ * Check if entity class should be ignored.
+ *
+ * @param {string} entityClass - Entity class name to check.
+ * @returns {boolean} True if entity class should be ignored.
+*/
+function BboxTraceAnalyzer::_isIgnoredEntity(entityClass) {
+    if(settings.GetIgnoreClasses().len() == 0) return false
+    if(settings.GetIgnoreClasses().contains("*")) return true
+    return settings.GetIgnoreClasses().search(function(v) : (entityClass) { 
+        return entityClass.find(v) >= 0 
+    }) != null
+}
+
+/* 
+ * Check if entity model is in the ignored models list.
+ *
+ * @param {string} entityModel - The model name of the entity.
+ * @returns {boolean} True if the model should be ignored.
+*/
+function BboxTraceAnalyzer::_isIgnoredModels(entityModel) {
+    if(settings.GetIgnoredModels().len() == 0 || entityModel == "") return false
+    return settings.GetIgnoredModels().search(function(v) : (entityModel) { 
+        return entityModel.find(v) >= 0 
+    }) != null
+}
+const LegacyJumpPercent = 0.25
+
+/*
+ * TODO
+*/
+::LegacyBboxAnalyzer <- class {
+    settings = null;
+    hitpos = null;
+    hitent = null;
+
+    /*
+     * Constructor for LegacyBboxAnalyzer.
+     *
+     * @param {Vector} startpos - The start position of the trace.
+     * @param {Vector} endpos - The end position of the trace.
+     * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
+     * @param {TraceSettings} settings - The settings to use for the trace. 
+    */ 
+    constructor(startpos, endpos, ignoreEntities, settings) {
         if(typeof settings != "TraceSettings") throw("Invalid trace settings provided. Expected an instance of TracePlus.Settings")
         this.settings = settings
         
-        local result = this.Trace(startpos, endpos, ignoreEntities, note)
+        local result = this.Trace(startpos, endpos, ignoreEntities)
         this.hitpos = result[0]
         this.hitent = result[1]
     }
-
-    /*
-     * Gets the hit position of the trace. 
-     *
-     * @returns {Vector} - The hit position. 
-    */
-    function GetHitpos() {
-        return this.hitpos
-    }
-
-    /* 
-     * Gets the entity hit by the trace. 
-     *
-     * @returns {CBaseEntity|null} - The hit entity, or null if no entity was hit.
-    */
-    function GetEntity() {
-        return this.hitent
-    }
-
-    /* 
-     * Performs a precise trace line analysis. 
-     *
-     * This method subdivides the trace into smaller segments and checks for entity collisions along the way, 
-     * considering entity priorities and ignore settings.
-     * 
-     * @param {Vector} startPos - The start position of the trace.
-     * @param {Vector} endPos - The end position of the trace.
-     * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
-     * @param {string|null} note - An optional note associated with the trace. 
-     * @returns {array} - An array containing the hit position and the hit entity (or null). 
-    */
-    function Trace(startPos, endPos, ignoreEntities, note) array(hitPos, hitEnt) 
-    /* 
-     * Checks if an entity is a priority entity based on the trace settings.
-     *
-     * @param {string} entityClass - The classname of the entity. 
-     * @returns {boolean} - True if the entity is a priority entity, false otherwise. 
-    */
-    function _isPriorityEntity() bool
-    /* 
-     * Checks if an entity should be ignored based on the trace settings. 
-     *
-     * @param {string} entityClass - The classname of the entity. 
-     * @returns {boolean} - True if the entity should be ignored, false otherwise. 
-    */
-    function _isIgnoredEntity() bool
-    /* 
-     * Checks if the trace should consider a hit with the given entity.
-     * 
-     * @param {CBaseEntity} ent - The entity to check.
-     * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
-     * @param {string|null} note - An optional note associated with the trace. 
-     * @returns {boolean} - True if the trace should consider the hit, false otherwise. 
-    */
-    function shouldHitEntity() bool
 }
 
 /*
@@ -5910,10 +7067,9 @@ const JumpPercent = 0.25
  * @param {Vector} startPos - The start position of the trace.
  * @param {Vector} endPos - The end position of the trace.
  * @param {array|CBaseEntity|null} ignoreEntities - A list of entities or a single entity to ignore during the trace. 
- * @param {string|null} note - An optional note associated with the trace. 
  * @returns {array} - An array containing the hit position and the hit entity (or null). 
 */
-function TraceLineAnalyzer::Trace(startPos, endPos, ignoreEntities, note = null) {
+function LegacyBboxAnalyzer::Trace(startPos, endPos, ignoreEntities) {
     // Preventing VScript errors and ensuring correct results even with a broken TraceLine
     if(macros.PointInBounds(startPos) == false) return [startPos, null]
     
@@ -5922,33 +7078,47 @@ function TraceLineAnalyzer::Trace(startPos, endPos, ignoreEntities, note = null)
     local dist = hitPos - startPos
     local entBuffer = List()
 
-    local halfSegment = dist * JumpPercent * 0.5
+    local halfSegment = dist * LegacyJumpPercent * 0.5
     local segmentsLenght = halfSegment * 2
     local searchRadius = halfSegment.Length()
     local searchSteps = searchRadius / this.settings.depthAccuracy
    
-    for(local segment = 0; segment < 1; segment += JumpPercent) {
+    for(local segment = 0; segment < 1; segment += LegacyJumpPercent) {
 
         //* "DIRTY" Search
-        local segmentCenter = startPos + dist * (segment + JumpPercent * 0.5)
+        local segmentCenter = startPos + dist * (segment + LegacyJumpPercent * 0.5)
         // dev.drawbox(segmentCenter, Vector(255,0,0), 6)
         for (local ent; ent = Entities.FindByClassnameWithin(ent, "*", segmentCenter, searchRadius);) {
-            if (ent && this.shouldHitEntity(ent, ignoreEntities, note)) {
-                local idx = ent.entindex()
-                local BEnt = null
-                // small cache system
-                if(idx in EntBufferTable && EntBufferTable[idx].IsValid() && this.eqVecFunc(EntBufferTable[idx].origin, ent.GetOrigin())) {
-                    BEnt = EntBufferTable[idx]
-                }
-                else {
-                    BEnt = BufferedEntity(ent)
-                    EntBufferTable[idx] <- BEnt
-                }
-                
-                if(BEnt.ignoreMe || RayAabbIntersect(startPos, endPos, BEnt.bboxMin, BEnt.bboxMax)) 
-                    entBuffer.append(BEnt)
-                else BEnt.ignoreMe = true
+            if (!ent || !this.shouldHitEntity(ent, ignoreEntities)) continue
+
+            local idx = ent.entindex()
+            local BEnt = null
+            // small cache system
+            if(idx in EntBufferTable && EntBufferTable[idx].entity.IsValid() && this.math.vector.IsEqual(EntBufferTable[idx].origin, ent.GetOrigin())) {
+                BEnt = EntBufferTable[idx]
             }
+            else {
+                BEnt = BufferedEntity(ent)
+                EntBufferTable[idx] <- BEnt
+            }
+
+            // This handles the specific case where the trace starts *inside* an entity's bounding box.
+            // It's crucial for allowing traces to originate from within large volumes (e.g., a trigger_multiple)
+            // without immediately hitting that volume itself. The entity is flagged and will be ignored
+            // for the entire duration of this trace, allowing the ray to 'escape' and hit what's next.
+            if(segment==0 && macros.PointInBBox(startPos, BEnt.bboxMin, BEnt.bboxMax)) {
+                BEnt.skipEntity = true
+                continue
+            }
+
+            if(BEnt.skipEntity) {
+                continue
+            }
+            
+            if(BEnt.ignoreChecksCalc || RayAabbIntersectFast(startPos, endPos, BEnt.bboxMin, BEnt.bboxMax)) 
+                entBuffer.append(BEnt)
+            else BEnt.ignoreChecksCalc = true
+
         }
 
         // The "dirty search" didn't turn up anything? Check the next segment
@@ -5959,7 +7129,7 @@ function TraceLineAnalyzer::Trace(startPos, endPos, ignoreEntities, note = null)
         for (local i = 0.0; i <= searchSteps; i++) {
             local rayPart = segmentStart + segmentsLenght * (i / searchSteps)
             
-            foreach(ent in entBuffer) {
+            foreach(ent in entBuffer.iter()) {
                 if(macros.PointInBBox(rayPart, ent.bboxMin, ent.bboxMax)) {
                     if(this.settings.bynaryRefinement) 
                         return [BinaryRefinementSearch(rayPart - halfSegment * 0.5, rayPart + halfSegment * 0.5, ent.bboxMin, ent.bboxMax), ent.entity]
@@ -5978,16 +7148,7 @@ function TraceLineAnalyzer::Trace(startPos, endPos, ignoreEntities, note = null)
     return [hitPos, null]
 }
 
-// DEBUG for dirty search
-    // dev.drawbox(startPos, Vector(255,255,255), 6)
-    // dev.drawbox(endPos, Vector(255,255,255), 6)
-// DEBUG for "deep search"
-    // dev.drawbox(rayPart, Vector(255, 255, 0), 5)
-    // dev.drawbox(rayPart - halfSegment * 0.5, Vector(125, 255, 0), 5)
-    // dev.drawbox(rayPart + halfSegment* 0.5, Vector(125, 255, 0), 5)
-
-
-function RayAabbIntersect(start, end, min, max) {
+function RayAabbIntersect(start, end, min, max) { // todo: can i use RayAabbIntersectFast for this?
     local dir = end - start;
 
     local tEnter = -999999.0;
@@ -6059,14 +7220,14 @@ function BinaryRefinementSearch(rayStart, rayEnd, bMin, bMax) {
 * @param {Entity|array} ignoreEntities - Entities being ignored. 
 * @returns {boolean} True if should ignore.
 */
-function TraceLineAnalyzer::shouldHitEntity(ent, ignoreEntities, note) { 
+function LegacyBboxAnalyzer::shouldHitEntity(ent, ignoreEntities) { 
     if(ent in TracePlusIgnoreEnts && TracePlusIgnoreEnts[ent])
         return false
     
-    if(settings.ApplyIgnoreFilter(ent, note))
+    if(settings.ApplyIgnoreFilter(ent))
         return false
 
-    if(settings.ApplyCollisionFilter(ent, note))
+    if(settings.ApplyCollisionFilter(ent))
         return true
 
     if(ignoreEntities) {
@@ -6104,7 +7265,7 @@ function TraceLineAnalyzer::shouldHitEntity(ent, ignoreEntities, note) {
 * @param {string} entityClass - Entity class name.
 * @returns {boolean} True if priority.
 */
-function TraceLineAnalyzer::_isPriorityEntity(entityClass) {
+function LegacyBboxAnalyzer::_isPriorityEntity(entityClass) {
     if(settings.GetPriorityClasses().len() == 0) 
         return false
     return settings.GetPriorityClasses().search(function(val):(entityClass) {
@@ -6118,7 +7279,7 @@ function TraceLineAnalyzer::_isPriorityEntity(entityClass) {
 * @param {string} entityClass - Entity class name.
 * @returns {boolean} True if ignored.
 */
-function TraceLineAnalyzer::_isIgnoredEntity(entityClass) {
+function LegacyBboxAnalyzer::_isIgnoredEntity(entityClass) {
     if(settings.GetIgnoreClasses().len() == 0) 
         return false
     if(settings.GetIgnoreClasses().contains("*"))
@@ -6134,7 +7295,7 @@ function TraceLineAnalyzer::_isIgnoredEntity(entityClass) {
 * @param {string} entityModel - The model name of the entity.
 * @returns {boolean} True if the model is ignored, false otherwise. 
 */
-function TraceLineAnalyzer::_isIgnoredModels(entityModel) {
+function LegacyBboxAnalyzer::_isIgnoredModels(entityModel) {
     if(settings.GetIgnoredModels().len() == 0 || entityModel == "") 
         return false
     return settings.GetIgnoredModels().search(function(val):(entityModel) {
@@ -6142,48 +7303,13 @@ function TraceLineAnalyzer::_isIgnoredModels(entityModel) {
     }) != null
 }
 /*
- * Calculates two new start positions for additional traces used in impact normal calculation. 
- * 
- * @param {Vector} startPos - The original start position of the trace. 
- * @param {Vector} dir - The direction vector of the trace. 
- * @returns {array} - An array containing two new start positions as Vectors. 
-*/
-function _getNewStartsPos(startPos, dir) {
-    // Calculate offset vectors perpendicular to the trace direction
-    local perpDir = Vector(-dir.y, dir.x, 0)
-    local offset1 = perpDir
-    local offset2 = dir.Cross(offset1)
-
-    // Calculate new start positions for two additional traces
-    local newStart1 = startPos + offset1
-    local newStart2 = startPos + offset2
-
-    return [
-        newStart1, 
-        newStart2
-    ]
-}
-
-/*
- * Performs a cheap trace from a new start position to find an intersection point.
- *
- * @param {Vector} newStart - The new start position for the trace. 
- * @param {Vector} dir - The direction vector of the trace. 
- * @returns {Vector} - The hit position of the trace.
-*/
-function _getIntPoint(newStart, dir) {    
-    return TracePlus.Cheap(newStart, (newStart + dir * 8000)).GetHitpos()
-}
-
-/*
- * Calculates the normal vector of a triangle .
- * 
- * @param {Vector} v1 - The first . 
- * @param {Vector} v2 - The second .
- * @param {Vector} v3 - The third . 
+ * Calculates the normal vector of a triangle.
+ * * @param {Vector} v1 - The first vertex. 
+ * @param {Vector} v2 - The second vertex.
+ * @param {Vector} v3 - The third vertex. 
  * @returns {Vector} - The normal vector of the triangle. 
 */
-function _calculateNormal(v1, v2, v3) {
+::_calculateNormal <- function(v1, v2, v3) {
     // Calculate two edge vectors of the triangle. 
     local edge1 = v2 - v1
     local edge2 = v3 - v1
@@ -6195,475 +7321,96 @@ function _calculateNormal(v1, v2, v3) {
     return normal 
 }
 
-/*
- * Finds the three closest vertices to a given point from a list of vertices. 
- *
- * @param {Vector} point - The point to find the closest vertices to.
- * @param {array} vertices - An array of Vector objects representing the vertices. 
- * @returns {array} - An array containing the three closest vertices as Vector objects.
-*/ 
-function _findClosestVertices(point, vertices) {
-    // Sort the vertices based on their distance to the point.
-    vertices.sort(function(a, b):(point) {
-        return (a - point).LengthSqr() - (b - point).LengthSqr() 
-    })
-
-    // Return the three closest vertices.
-    return vertices.slice(0, 3)  
+// Fast coordinate system transformations
+function _worldToLocal(entity, worldPoint, R) {
+    local origin = entity.GetOrigin()
+    return R.unrotateVector(worldPoint - origin)
 }
-
-function _numberIsCloseTo(num1, num2, tolerance = 1) {
-    return abs(num1 - num2) <= tolerance;
-}
-
-/*
-  Gets the proper vertices of a face (4 of them), regarding the hitPoint
-  allVertices - Array of Vectors, where each vector represents the position of a vertex point of the bounding box
-  hitPoint - vector of the position where the ray hit
-*/
-function _getFaceVertices(allVertices, hitPoint, origin) {
-    local resultX = []
-    local resultY = []
-    local resultZ = []
-    hitPoint -= origin
-
-    foreach(vertexPoint in allVertices) {
-        if(_numberIsCloseTo(vertexPoint.x, hitPoint.x)) resultX.append(vertexPoint)
-        else if(_numberIsCloseTo(vertexPoint.y, hitPoint.y)) resultY.append(vertexPoint)
-        else if(_numberIsCloseTo(vertexPoint.z, hitPoint.z)) resultZ.append(vertexPoint)
-        if(3 in resultX || 3 in resultY || 3 in resultZ) break
-    }
-
-    if(3 in resultX) return resultX
-    if(3 in resultY) return resultY
-    if(3 in resultZ) return resultZ
-
-    return null
+function _localDirToWorld(localDir, R) {
+    // For normal/direction: rotation only, no translation
+    return R.rotateVector(localDir)
 }
 
 
-/* 
- * Calculates the impact normal of a surface hit by a trace. 
+/* * Calculates the impact normal of a surface hit by a trace. 
  *
  * @param {Vector} startPos - The start position of the trace.
  * @param {Vector} hitPos - The hit position of the trace.
  * @returns {Vector} - The calculated impact normal vector. 
 */
 ::CalculateImpactNormal <- function(startPos, hitPos) {
-    // Calculate the normalized direction vector from startpos to hitpos
-    local dir = hitPos - startPos
-    dir.Norm()
+    const offset = 5.0;
+    local dir = hitPos - startPos; dir.Norm()
 
-    // Get two new start positions for additional traces.
-    local newStartsPos = _getNewStartsPos(startPos, dir)
-    
-    // Perform cheap traces from the new start positions to find intersection points.
-    local point1 = _getIntPoint(newStartsPos[0], dir)
-    local point2 = _getIntPoint(newStartsPos[1], dir)
-    
-    return _calculateNormal(hitPos, point2, point1)
+    // Ortho Basis
+    local up = abs(dir.z) < 0.99 ? Vector(0,0,1) : Vector(0,1,0)
+    local right = dir.Cross(up); right.Norm()
+    local up2 = right.Cross(dir); up2.Norm()
+
+    local newStart1 = startPos + right * offset
+    local newStart2 = startPos + up2 * offset
+    local endPos1   = newStart1 + dir * 8000
+    local endPos2   = newStart2 + dir * 8000
+
+    local fraction1 = TraceLine(newStart1, endPos1, null)
+    local fraction2 = TraceLine(newStart2, endPos2, null)
+    local point1    = newStart1 + (endPos1 - newStart1) * fraction1
+    local point2    = newStart2 + (endPos2 - newStart2) * fraction2
+
+    local normal = _calculateNormal(hitPos, point1, point2)
+    if (normal.Dot(dir) > 0) normal = normal * -1.0
+    return normal
 }
 
 ::CalculateImpactNormalFromBbox <- function(startPos, hitPos, hitEntity) {
-    // The algorithm proposed by Enderek
-    local closestVertices = _getFaceVertices(hitEntity.getBBoxPoints(), hitPos, hitEntity.GetOrigin())
-    if(!closestVertices)
-        return CalculateImpactNormalFromBbox2(startPos, hitPos, hitEntity)
-    
-    local faceNormal = _calculateNormal(closestVertices[0], closestVertices[1], closestVertices[2])
+    // Construct rotation matrix
+    local angles = hitEntity.GetAngles()
+    local R = math.Matrix().fromEuler(angles)  // local -> world
 
-    local traceDir = (hitPos - startPos)
-    traceDir.Norm()
-    if (faceNormal.Dot(traceDir) > 0) 
-        return faceNormal * -1
+    // Transform hit point to local space
+    local localHit = _worldToLocal(hitEntity, hitPos, R)
 
-    return faceNormal 
+    // Get local AABB bounds (engine always stores them in local space)
+    local bmin = hitEntity.GetBoundingMins()
+    local bmax = hitEntity.GetBoundingMaxs()
+
+    // Find the nearest plane
+    local distXmin = fabs(localHit.x - bmin.x)
+    local distXmax = fabs(bmax.x - localHit.x)
+    local distYmin = fabs(localHit.y - bmin.y)
+    local distYmax = fabs(bmax.y - localHit.y)
+    local distZmin = fabs(localHit.z - bmin.z)
+    local distZmax = fabs(bmax.z - localHit.z)
+
+    local axis = 0   // 0=X,1=Y,2=Z
+    local sign = -1.0
+    local best = distXmin
+
+    if (distXmax < best) { best = distXmax; axis = 0; sign =  1.0 }
+    if (distYmin < best) { best = distYmin; axis = 1; sign = -1.0 }
+    if (distYmax < best) { best = distYmax; axis = 1; sign =  1.0 }
+    if (distZmin < best) { best = distZmin; axis = 2; sign = -1.0 }
+    if (distZmax < best) { best = distZmax; axis = 2; sign =  1.0 }
+
+    // Local normal of that plane
+    local nLocal = Vector(0,0,0)
+    if (axis == 0) nLocal.x = sign
+    else if (axis == 1) nLocal.y = sign
+    else nLocal.z = sign
+
+    // Rotate normal back to world space
+    local nWorld = _localDirToWorld(nLocal, R)
+    nWorld.Norm()
+
+    // Ensure the normal points AGAINST the trace direction
+    local traceDir = (hitPos - startPos); traceDir.Norm()
+    if (nWorld.Dot(traceDir) > 0) nWorld = nWorld * -1.0
+
+    return nWorld
 }
 
-/*
- * Calculates the impact normal of a surface hit by a trace using the bounding box of the hit entity.
- *
- * @param {Vector} startPos - The start position of the trace.
- * @param {Vector} hitPos - The hit position of the trace.
- * @param {BboxTraceResult} traceResult - The trace result object.
- * @returns {Vector} - The calculated impact normal vector. 
-*/
-::CalculateImpactNormalFromBbox2 <- function(startPos, hitPos, hitEntity) {
-    // Get the entity bounding box vertices.
-    local bboxVertices = hitEntity.getBBoxPoints()
+// todo inline all
 
-    // Find the three closest vertices to the hit position.
-    local closestVertices = _findClosestVertices(hitPos - hitEntity.GetOrigin(), bboxVertices)
-
-    // Calculate the normal vector of the face formed by the three closest vertices.
-    local faceNormal = _calculateNormal(closestVertices[0], closestVertices[1], closestVertices[2])
-
-    // Ensure the normal vector points away from the trace direction.
-    local traceDir = (hitPos - startPos)
-    traceDir.Norm()
-    if (faceNormal.Dot(traceDir) > 0)
-        return faceNormal * -1
-
-    return faceNormal 
-}
-
-/*+--------------------------------------------------------------------------------+
-|                           PCapture Vscripts Library                              |
-+----------------------------------------------------------------------------------+
-| Author:                                                                          |
-|     Event Orchestrator - laVashik ・人・                                          |
-+----------------------------------------------------------------------------------+
-|   The Events module, offering an advanced event scheduling and management system | 
-|   for creating complex, timed events with precision and control.                 |
-+----------------------------------------------------------------------------------+ */ 
-
-
-::ScheduleEvent <- {
-    // Object to store scheduled events 
-    eventsList = {global = List()},
-    
-    Add = null,
-    AddActions = null,
-    AddInterval = null,
-
-    Cancel = null,
-    CancelByAction = null,
-    CancelAll = null,
-    
-    GetEvent = null,
-    
-    IsValid = null,
-}
-
-/*
- * Represents a scheduled action.
- *
- * This class encapsulates information about an action that is scheduled to be executed at a specific time.
-*/
-::ScheduleAction <- class {
-    // The entity that created the event. 
-    scope = null;
-    // The action to execute when the scheduled time arrives.  
-    action = null;
-    // The time at which the action is scheduled to be executed. 
-    executionTime = null;
-    // Optional arguments to pass to the action function.  
-    args = null;
-
-    /*
-     * Constructor for a ScheduleAction object.
-     *
-     * @param {pcapEntity} scope - The entity that created the event.
-     * @param {string|function} action - The action to execute when the event is triggered.
-     * @param {number} delay - The time at which the event is scheduled to be executed.
-     * @param {array|null} args - Optional arguments to pass to the action function. 
-    */
-    constructor(scope, action, delay, args = null) {
-        this.scope = scope
-        this.action = action
-        this.executionTime = delay + Time()
-
-        this.args = args
-    }
-
-    /* 
-     * Executes the scheduled action. 
-     *
-     * If the action is a string, it is compiled into a function before execution.
-     * If arguments are provided, they are passed to the action function. 
-     *
-     * @returns {any} - The result of the action function. 
-    */
-    function run() {
-        if(type(this.action) == "string")
-            this.action = compilestring(action)
-
-        if(this.args == null) {
-            return this.action.call(scope)
-        }
-        
-        if(typeof this.args != "array" && typeof this.args != "ArrayEx" && typeof this.args != "List") {
-            throw("Invalid arguments for ScheduleEvent! The argument must be itterable, not (" + args + ")")
-        }
-
-        local actionArgs = [this.scope]
-        actionArgs.extend(this.args)
-        return action.acall(actionArgs)
-    }
-
-    /*
-     * Processes a generator action.
-     * 
-     * @param {Generator} generator - The generator to be processed.
-     * @returns {any} - The result of processing the generator.
-    */
-    function processGenerator(generator, eventName) {
-        if(generator.getstatus() == "dead") return
-        local delay = resume generator
-        if(delay == null) return
-        
-        try {delay = delay.tofloat()} 
-        catch(err) {throw "Invalid value for sleep. " + err}
-        
-        // todo Optimization: can edit this, change its time, and move in queue
-        if(eventName in ScheduleEvent.eventsList)
-            ScheduleEvent.Add(eventName, generator, delay, null, this.scope)
-    }
-
-    function GetInfo() return "[Scope] " + scope + "\n[Action] " + action + "\n[executionTime] " + executionTime
-    function _typeof() return "ScheduleAction"
-    function _tostring() return "ScheduleAction: (" + this.executionTime + ")"
-    function _cmp(other) {    
-        if (this.executionTime > other.executionTime) return 1;
-        else if (this.executionTime < other.executionTime) return -1;
-        return 0; 
-    }
-}
-/*
- * Adds a single action to a scheduled event with the specified name.
- *
- * @param {string} eventName - The name of the event to add the action to. If the event does not exist, it is created.
- * @param {string|function} action - The action to execute when the scheduled time arrives. This can be a string containing VScripts code or a function object.
- * @param {number} timeDelay - The delay in seconds before executing the action.
- * @param {array|null} args - An optional array of arguments to pass to the action function.
- * @param {object} scope - The scope in which to execute the action (default is `this`). 
-*/
-ScheduleEvent["Add"] <- function(eventName, action, timeDelay, args = null, scope = this) {
-    if ( !(eventName in ScheduleEvent.eventsList) ) {
-        ScheduleEvent.eventsList[eventName] <- List()
-        dev.trace("Created new Event - \"{}\"", eventName)
-    }
-
-    local newScheduledEvent = ScheduleAction(scope, action, timeDelay, args)
-    local currentActionList = ScheduleEvent.eventsList[eventName]
-
-
-    if(currentActionList.len() == 0 || currentActionList.top() <= newScheduledEvent) {
-        currentActionList.append(newScheduledEvent)
-        return
-    } 
-    
-    //* --- A binary tree.
-    local low = 0
-    local high = currentActionList.len() - 1
-    local mid
-
-    while (low <= high) {
-        mid = (low + high) / 2
-        if (currentActionList[mid] < newScheduledEvent) {
-            low = mid + 1
-        }
-        else if (currentActionList[mid] > newScheduledEvent) {
-            high = mid - 1
-        }
-        else {
-            low = mid
-            break
-        }
-    }
-    
-    currentActionList.insert(low, newScheduledEvent)
-}
-
-/*
- * Adds an action to a scheduled event that will be executed repeatedly at a fixed interval. 
- *
- * @param {string} eventName - The name of the event to add the interval to. If the event does not exist, it is created.
- * @param {string|function} action - The action to execute at each interval.
- * @param {number} interval - The time interval in seconds between executions of the action.
- * @param {number} initialDelay - The initial delay in seconds before the first execution of the action (default is 0). 
- * @param {array|null} args - An optional array of arguments to pass to the action function. 
- * @param {object} scope - The scope in which to execute the action (default is `this`). 
-*/ 
-ScheduleEvent["AddInterval"] <- function(eventName, action, interval, initialDelay = 0, args = null, scope = this) {
-    local intervalAction = function(eventName, action, args, scope, interval) {
-        local event = ScheduleAction(scope, action, 0, args)
-        local delay
-
-        while(true) {
-            local result = event.run()
-
-            if(typeof result == "generator") {
-                while(delay = resume result) yield delay
-            }
-
-            yield interval
-        }
-    }
-
-    ScheduleEvent.Add(eventName, intervalAction, initialDelay, [eventName, action, args, scope, interval])
-    dev.trace("New Interval \"{}\" was created!", eventName)
-}
-
-/*
- * Adds multiple actions to a scheduled event, ensuring they are sorted by execution time.
- *
- * @param {string} eventName - The name of the event to add the actions to. If the event does not exist, it is created.
- * @param {array|List} actions - An array or List of `ScheduleAction` objects to add to the event.
- * @param {boolean} noSort - If true, the actions will not be sorted by execution time (default is false).
- * 
- * **Caution:** Use the `noSort` parameter with care. Incorrect usage may lead to unexpected behavior or break the event scheduling logic. 
-*/ 
-ScheduleEvent["AddActions"] <- function(eventName, actions, noSort = false) { 
-    if (eventName in ScheduleEvent.eventsList ) {
-        ScheduleEvent.eventsList[eventName].extend(actions)
-        ScheduleEvent.eventsList[eventName].sort()
-        if(developer() > 0) dev.trace("Added {} actions to Event \"{}\".", actions.len(), eventName)
-        return 
-    } 
-
-    if(!noSort) actions.sort()
-
-    if(typeof actions == "List") {
-        ScheduleEvent.eventsList[eventName] <- actions
-    } else {
-        ScheduleEvent.eventsList[eventName] <- List.FromArray(actions)
-    }
-
-    if(developer() > 0) dev.trace("Created new Event \"{}\" with {} actions.", eventName, actions.len())
-}
-
-
-/*
- * Cancels a scheduled event with the given name, optionally after a delay.
- *
- * @param {string} eventName - The name of the event to cancel.
- * @param {number} delay - An optional delay in seconds before canceling the event.
-*/  
-ScheduleEvent["Cancel"] <- function(eventName, delay = 0) {
-    if(eventName == "global")
-        throw("The global event cannot be closed!")
-    if(!(eventName in ScheduleEvent.eventsList))
-        throw("There is no event named " + eventName)
-    if(delay > 0)
-        return ScheduleEvent.Add("global", format("ScheduleEvent.Cancel(\"%s\")", eventName), delay)
-    
-    ScheduleEvent.eventsList.rawdelete(eventName)
-        
-    if(developer() > 0) dev.trace("Event \"{}\" closed! Actial events: {}", eventName, macros.GetKeys(ScheduleEvent.eventsList))
-}
-
-/*
- * Attempts to cancel a scheduled event with the given name, optionally after a delay.
- *
- * @param {string} eventName - The name of the event to cancel.
- * @param {number} delay - An optional delay in seconds before attempting to cancel the event.
- * @returns {boolean} - True if the event was found and canceled, false otherwise.
- * 
- * This function is similar to `ScheduleEvent.Cancel`, but it does not throw an error if the event is not found.
- * It's useful for situations where you're unsure if an event exists and want to attempt cancellation without risking errors.
-*/
-ScheduleEvent["TryCancel"] <- function(eventName, delay = 0) {
-    if(delay > 0) 
-        return ScheduleEvent.Add("global", ScheduleEvent.TryCancel, delay, [eventName])
-    local isValid = ScheduleEvent.IsValid(eventName) 
-    if(isValid) ScheduleEvent.Cancel(eventName)
-    return isValid
-}
-
-
-/*
- * Cancels all scheduled actions that match the given action, optionally after a delay.
- *
- * @param {string|function} action - The action to cancel.
- * @param {number} delay - An optional delay in seconds before canceling the actions. 
-*/
-ScheduleEvent["CancelByAction"] <- function(action, delay = 0) {
-    if(delay > 0)
-        return ScheduleEvent.Add("global", format("ScheduleEvent.Cancel(\"%s\")", eventName), delay)
-    
-    foreach(name, events in ScheduleEvent.eventsList) {
-        foreach(eventAction in events) {
-            if(eventAction.action == action) {
-                events.remove(eventAction)
-                dev.trace("\"{}\" was deleted from \"{}\"", eventAction, name)
-            }
-        }
-    }
-}
-
-/*
- * Cancels all scheduled events and actions, effectively clearing the event scheduler.
-*/
-ScheduleEvent["CancelAll"] <- function() {
-    ScheduleEvent.eventsList = {global = List()}
-    dev.trace("All scheduled events have been canceled!")
-}
-
-
-/*
- * Gets info about a scheduled event.
- * 
- * @param {string} eventName - Name of event to get info for.
- * @returns {List|null} - The event info object or null if not found.
-*/
-ScheduleEvent["GetEvent"] <- function(eventName) {
-    return eventName in ScheduleEvent.eventsList ? ScheduleEvent.eventsList[eventName] : null
-}
-
-
-/*
- * Checks if event is valid
- * 
- * @param {string} eventName - Name of event to get info for.
- * @returns {bool} - Object exists or not.
-*/
-ScheduleEvent["IsValid"] <- function(eventName) {
-    return eventName in ScheduleEvent.eventsList && ScheduleEvent.eventsList[eventName].len() != 0
-}
-/*
- * Executes scheduled events when their time is up. 
- * 
- * This function iterates over all scheduled events and checks if their scheduled execution time has arrived. 
- * If so, it executes the event's action and removes it from the list of scheduled events. 
- * The function then schedules itself to run again after a short delay to continue processing events.
-*/
-::ScheduledEventLoop <- function() {
-    local time = Time() + 0.0001
-    // Iterate over each event name and its corresponding event list. 
-    foreach(eventName, eventInfo in ScheduleEvent.eventsList) {
-        local event 
-        // Process events until the list is empty or the next event's time hasn't arrived yet.  
-        while(eventInfo.length > 0 && time >= (event = eventInfo.first()).executionTime) {
-            eventInfo.remove(0)
-            try {
-                local gtor = event.action
-                if(typeof event.action == "generator" || typeof (gtor = event.run()) == "generator") {
-                    event.processGenerator(gtor, eventName)
-                }
-            }
-            catch(exception) {
-                //* Stack unwinding
-                macros.fprint("AN ERROR HAS OCCURED IN ScheduleEvent [{}]", exception)
-                printl("\nCALLSTACK")
-                local stack
-                for(local i = 1; stack = getstackinfos(i); i++)
-                    macros.fprint("*FUNCTION [{}()] {} line [{}]", stack.func, stack.src, stack.line)
-
-                macros.fprint("\nSCHEDULED EVENT\n[Name] {}\n{}\n[Exception]{}\n[Event Action List] {}", eventName, event.GetInfo(), exception, ScheduleEvent.eventsList[eventName])
-
-                if(type(event.action) == "function" || type(event.action) == "native function") {
-                    printl("\nFUNCTION INFO")
-                    foreach(key, val in event.action.getinfos()) {
-                        if(type(val) == "array") val = ArrayEx.FromArray(val)
-                        macros.fprint("[{}] {}", key.toupper(), val)
-                    }
-                }
-
-                SendToConsole("playvol resource/warning.wav 1")
-            }
-        }
-        if(eventName != "global" && eventInfo.length == 0) {
-            ScheduleEvent.eventsList.rawdelete(eventName)
-            if(developer() > 0) dev.trace("Event {} closed.", eventName)
-        }
-    }
-}
-
-// Create a logic_timer to process the event loop.
-local timer = entLib.CreateByClassname("logic_timer", {RefireTime=0.001})
-timer.ConnectOutput("OnTimer", "ScheduledEventLoop")
-EntFireByHandle(timer, "Enable");
 /*+--------------------------------------------------------------------------------+
 |                           PCapture Vscripts Library                              |
 +----------------------------------------------------------------------------------+
@@ -6702,18 +7449,25 @@ EntFireByHandle(timer, "Enable");
     */
     constructor(name, table, ents, time = 0) {
         this.animName = name
-        this.entities = _GetEntities(ents)
+        this.entities = _GetEntities(ents, name)
         this.delay = time
         
         this.eventName = macros.GetFromTable(table, "eventName", UniqueString(name + "_anim"))
         this.globalDelay = macros.GetFromTable(table, "globalDelay", 0)
         this.output = macros.GetFromTable(table, "output", null)
-        this.scope = macros.GetFromTable(table, "scope", this)
+        this.scope = macros.GetFromTable(table, "scope", null)
         this.easeFunc = macros.GetFromTable(table, "ease", function(t) return t)
         this.filterCallback = macros.GetFromTable(table, "filterCallback", function(a,b,c,d,e) return null)
         this.frameInterval = macros.GetFromTable(table, "frameInterval", FrameTime()) 
         this.maxFrames = macros.GetFromTable(table, "fps", 60.0)
         this.autoOptimization = macros.GetFromTable(table, "optimization", true)
+
+        if(this.frameInterval == 0) throw("frameInterval is not to have 0")
+
+        // If the class points to the root table, it will result in a circular reference. This fixed here
+        if(this.scope == getroottable()) {
+            this.scope = null
+        }
     } 
 
     /* 
@@ -6724,19 +7478,39 @@ EntFireByHandle(timer, "Enable");
             ScheduleEvent.Add(this.eventName, this.output, this.delay + this.globalDelay, null, this.scope)
     }
 
-    function _GetEntities(entities) { // meh :>
-        if (typeof entities == "string") {
-            if(entities.find("*") == null)
-                return [entLib.FindByName(entities)]
-            else {
-                local ents = List()
-                for(local ent; ent = entLib.FindByName(entities, ent);)
-                    ents.append(ent)
-                return ents
+    function _GetEntities(entities, actionName) {
+        local type_of = typeof entities;
+        if (type_of == "string") {
+            local foundEnts = List(); // todo or array?
+            if(entities.find("*") == null) {
+                local ent = entLib.FindByName(entities);
+                if (!ent) dev.warning(actionName + " AnimEvent: Could not find entity with name '" + entities + "'");
+                else foundEnts.append(ent);
             }
+            else {
+                for(local ent; ent = entLib.FindByName(entities, ent);)
+                    foundEnts.append(ent)
+                if (foundEnts.len() == 0) dev.warning(actionName + " AnimEvent: Could not find any entities matching name pattern '" + entities + "'");
+            }
+            return foundEnts;
         }
                 
-        if (typeof entities != "pcapEntity")
+        
+        if (type_of == "array" || type_of == "ArrayEx" || type_of == "List") {
+            foreach(idx, entity in entities) {
+                if (!entity || !entity.IsValid()) {
+                    dev.warning(actionName + " AnimEvent: An invalid or null entity was found in the 'entities' list at index " + idx);
+                    continue;
+                }
+                if(typeof entity != "pcapEntity") 
+                    entities[idx] = entLib.FromEntity(entity)
+            }
+            return entities
+        }
+
+        if (!entities || !entities.IsValid()) throw("AnimEvent: The provided 'entities' argument is not a valid entity.");
+
+        if (type_of != "pcapEntity")
             return [entLib.FromEntity(entities)]
         
         return [entities]
@@ -6780,7 +7554,8 @@ animate["applyAnimation"] <- function(animInfo, valueCalculator, propertySetter,
 
         local newValue = valueCalculator(step, transitionFrames, vars)
         
-        foreach(ent in animInfo.entities) {
+        local iter = typeof animInfo.entities == "List" ? animInfo.entities.iter() : animInfo.entities
+        foreach(ent in iter) {
             local action = ScheduleAction(this, propertySetter, elapsed, [ent, newValue])
             actionsList.append(action)
         }
@@ -6831,24 +7606,47 @@ animate["applyRTAnimation"] <- function(animInfo, valueCalculator, propertySette
  * for VSquirrel to process upfront.
 */
 animate["_applyRTAnimation"] <- function(animInfo, valueCalculator, propertySetter, vars, transitionFrames) {
-    transitionFrames = ceil(transitionFrames) 
-    
-    if(developer() > 0) dev.trace("Started {} realtime animation ({})", animInfo.animName, animInfo.eventName)
+    // Round up the number of transition frames
+    transitionFrames = ceil(transitionFrames);
+    if (developer() > 0) dev.trace("Started {} realtime animation ({})", animInfo.animName, animInfo.eventName);
 
-    for(local step = 0; step <= transitionFrames; step++) {
-        local newValue = valueCalculator(step, transitionFrames, vars)
-        if(animInfo.filterCallback(animInfo, newValue, transitionFrames, step, vars)) break // todo fix it
+    // Helper function to process each animation step
+    function processStep(step, animInfo, valueCalculator, propertySetter, vars, transitionFrames) {
+        // Stop if all frames are processed
+        if (step > transitionFrames) {
+            animInfo.delay = 0;
+            animInfo.globalDelay = 0;
+            animInfo.CallOutput();
+            return;
+        }
 
+        // Calculate the new property value
+        local newValue = valueCalculator(step, transitionFrames, vars);
+
+        // Stop if the filter callback signals to cancel the animation
+        if (animInfo.filterCallback(animInfo, newValue, transitionFrames, step, vars)) {
+            return;
+        }
+
+        // Apply the new value to all entities
         foreach(ent in animInfo.entities)
             propertySetter(ent, newValue)
 
-        yield animInfo.frameInterval
+        // Move to the next step
+        ScheduleEvent.Add(
+            animInfo.eventName,
+            processStep,
+            animInfo.frameInterval,
+            [++step, animInfo, valueCalculator, propertySetter, vars, transitionFrames],
+            this  
+        );
     }
 
-    animInfo.delay = 0
-    animInfo.globalDelay = 0
-    animInfo.CallOutput()
-}
+    // Start the animation
+    processStep(0, animInfo, valueCalculator, propertySetter, vars, transitionFrames);
+};
+
+
 
 /*
  * Creates an animation that transitions the alpha (opacity) of entities over time.
@@ -6861,6 +7659,9 @@ animate["_applyRTAnimation"] <- function(animInfo, valueCalculator, propertySett
  * @returns {number} The duration of the animation in seconds. 
 */
 animate["AlphaTransition"] <- function(entities, startOpacity, endOpacity, time, animSetting = {}) {
+    if (typeof time != "integer" && typeof time != "float")  throw("AlphaTransition: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("AlphaTransition: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("alpha", animSetting, entities, time)
     local vars = {
         startOpacity = startOpacity,
@@ -6879,6 +7680,9 @@ animate["AlphaTransition"] <- function(entities, startOpacity, endOpacity, time,
 }
 
 animate.RT["AlphaTransition"] <- function(entities, startOpacity, endOpacity, time, animSetting = {}) {
+    if (typeof time != "integer" && typeof time != "float")  throw("AlphaTransition: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("AlphaTransition: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("alpha", animSetting, entities, time)
     local vars = {
         startOpacity = startOpacity,
@@ -6906,6 +7710,11 @@ animate.RT["AlphaTransition"] <- function(entities, startOpacity, endOpacity, ti
  * @returns {number} The duration of the animation in seconds. 
 */
 animate["ColorTransition"] <- function(entities, startColor, endColor, time, animSetting = {}) {
+    if (typeof startColor != "Vector" && typeof startColor != "string")   throw("ColorTransition: 'startColor' argument must be a Vector, but got " + typeof startColor);
+    if (typeof endColor != "Vector"   && typeof endColor != "string")   throw("ColorTransition: 'endColor' argument must be a Vector, but got " + typeof endColor);
+    if (typeof time != "integer" && typeof time != "float")             throw("ColorTransition: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                                  throw("ColorTransition: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("color", animSetting, entities, time)
     local vars = {
         startColor = startColor,
@@ -6924,6 +7733,11 @@ animate["ColorTransition"] <- function(entities, startColor, endColor, time, ani
 }
 
 animate.RT["ColorTransition"] <- function(entities, startColor, endColor, time, animSetting = {}) {
+    if (typeof startColor != "Vector" && typeof startColor != "string")   throw("ColorTransition: 'startColor' argument must be a Vector, but got " + typeof startColor);
+    if (typeof endColor != "Vector"   && typeof endColor != "string")   throw("ColorTransition: 'endColor' argument must be a Vector, but got " + typeof endColor);
+    if (typeof time != "integer" && typeof time != "float")             throw("ColorTransition: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                                  throw("ColorTransition: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("color", animSetting, entities, time)
     local vars = {
         startColor = startColor,
@@ -6951,6 +7765,11 @@ animate.RT["ColorTransition"] <- function(entities, startColor, endColor, time, 
  * @returns {number} The duration of the animation in seconds. 
 */
 animate["PositionTransitionByTime"] <- function(entities, startPos, endPos, time, animSetting = {}) {
+    if (typeof startPos != "Vector")                        throw("PositionTransitionByTime: 'startPos' argument must be a Vector, but got " + typeof startPos);
+    if (typeof endPos != "Vector")                          throw("PositionTransitionByTime: 'endPos' argument must be a Vector, but got " + typeof endPos);
+    if (typeof time != "integer" && typeof time != "float")  throw("PositionTransitionByTime: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("PositionTransitionByTime: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("position", animSetting, entities, time)
     local vars = {
         startPos = startPos,
@@ -6961,7 +7780,7 @@ animate["PositionTransitionByTime"] <- function(entities, startPos, endPos, time
     animate.applyAnimation(
         animSetting, 
         function(step, steps, v) {return v.startPos + v.dist * v.easeFunc(step / steps)},
-        function(ent, newPosition) {ent.SetAbsOrigin(newPosition)},
+        function(ent, newPosition) {ent.CBaseEntity.SetAbsOrigin(newPosition)},
         vars
     )
     
@@ -6969,6 +7788,11 @@ animate["PositionTransitionByTime"] <- function(entities, startPos, endPos, time
 }
 
 animate.RT["PositionTransitionByTime"] <- function(entities, startPos, endPos, time, animSetting = {}) {
+    if (typeof startPos != "Vector")                        throw("PositionTransitionByTime: 'startPos' argument must be a Vector, but got " + typeof startPos);
+    if (typeof endPos != "Vector")                          throw("PositionTransitionByTime: 'endPos' argument must be a Vector, but got " + typeof endPos);
+    if (typeof time != "integer" && typeof time != "float")  throw("PositionTransitionByTime: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("PositionTransitionByTime: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("position", animSetting, entities, time)
     local vars = {
         startPos = startPos,
@@ -6979,7 +7803,7 @@ animate.RT["PositionTransitionByTime"] <- function(entities, startPos, endPos, t
     animate.applyRTAnimation(
         animSetting, 
         function(step, steps, v) {return v.startPos + v.dist * v.easeFunc(step / steps)},
-        function(ent, newPosition) {ent.SetAbsOrigin(newPosition)},
+        function(ent, newPosition) {ent.CBaseEntity.SetAbsOrigin(newPosition)},
         vars
     )
     
@@ -7001,6 +7825,11 @@ animate.RT["PositionTransitionByTime"] <- function(entities, startPos, endPos, t
  * @returns {number} The duration of the animation in seconds. 
 */
 animate["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, speed, animSetting = {}) {
+    if (typeof startPos != "Vector")                        throw("PositionTransitionBySpeed: 'startPos' argument must be a Vector, but got " + typeof startPos);
+    if (typeof endPos != "Vector")                          throw("PositionTransitionBySpeed: 'endPos' argument must be a Vector, but got " + typeof endPos);
+    if (typeof speed != "integer" && typeof speed != "float")  throw("PositionTransitionBySpeed: 'speed' argument must be a number, but got " + typeof speed);
+    if (typeof animSetting != "table")                      throw("PositionTransitionBySpeed: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("position", animSetting, entities)
     local vars = {
         startPos = startPos,
@@ -7011,7 +7840,7 @@ animate["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, spe
     animate.applyAnimation(
         animSetting, 
         function(step, steps, v) {return v.startPos + v.dist * v.easeFunc(step / steps)},
-        function(ent, newPosition) {ent.SetAbsOrigin(newPosition)},
+        function(ent, newPosition) {ent.CBaseEntity.SetAbsOrigin(newPosition)},
         vars,
         vars.dist.Length() / speed.tofloat() // steps
     )
@@ -7020,6 +7849,11 @@ animate["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, spe
 } 
 
 animate.RT["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, speed, animSetting = {}) {
+    if (typeof startPos != "Vector")                        throw("PositionTransitionBySpeed: 'startPos' argument must be a Vector, but got " + typeof startPos);
+    if (typeof endPos != "Vector")                          throw("PositionTransitionBySpeed: 'endPos' argument must be a Vector, but got " + typeof endPos);
+    if (typeof speed != "integer" && typeof speed != "float")  throw("PositionTransitionBySpeed: 'speed' argument must be a number, but got " + typeof speed);
+    if (typeof animSetting != "table")                      throw("PositionTransitionBySpeed: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("position", animSetting, entities)
     local vars = {
         startPos = startPos,
@@ -7030,7 +7864,7 @@ animate.RT["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, 
     animate.applyRTAnimation(
         animSetting, 
         function(step, steps, v) {return v.startPos + v.dist * v.easeFunc(step / steps)},
-        function(ent, newPosition) {ent.SetAbsOrigin(newPosition)},
+        function(ent, newPosition) {ent.CBaseEntity.SetAbsOrigin(newPosition)},
         vars,
         vars.dist.Length() / speed.tofloat() // steps
     )
@@ -7048,6 +7882,11 @@ animate.RT["PositionTransitionBySpeed"] <- function(entities, startPos, endPos, 
  * @returns {number} The duration of the animation in seconds. 
 */
 animate["AnglesTransitionByTime"] <- function(entities, startAngles, endAngles, time, animSetting = {}) {
+    if (typeof startAngles != "Vector")                     throw("AnglesTransitionByTime: 'startAngles' argument must be a Vector, but got " + typeof startAngles);
+    if (typeof endAngles != "Vector")                       throw("AnglesTransitionByTime: 'endAngles' argument must be a Vector, but got " + typeof endAngles);
+    if (typeof time != "integer" && typeof time != "float")  throw("AnglesTransitionByTime: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("AnglesTransitionByTime: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("angles", animSetting, entities, time)
 
     local deltaAngleX = ((((endAngles.x - startAngles.x) % 360) + 540) % 360) - 180;
@@ -7063,7 +7902,7 @@ animate["AnglesTransitionByTime"] <- function(entities, startAngles, endAngles, 
     animate.applyAnimation(
         animSetting, 
         function(step, steps, v){return v.startAngles + v.angleDelta * v.easeFunc(step / steps)},
-        function(ent, newAngle) {ent.SetAbsAngles(newAngle)},
+        function(ent, newAngle) {ent.SetAngles2(newAngle)},
         vars
     )
     
@@ -7071,6 +7910,11 @@ animate["AnglesTransitionByTime"] <- function(entities, startAngles, endAngles, 
 }
 
 animate.RT["AnglesTransitionByTime"] <- function(entities, startAngles, endAngles, time, animSetting = {}) {
+    if (typeof startAngles != "Vector")                     throw("AnglesTransitionByTime: 'startAngles' argument must be a Vector, but got " + typeof startAngles);
+    if (typeof endAngles != "Vector")                       throw("AnglesTransitionByTime: 'endAngles' argument must be a Vector, but got " + typeof endAngles);
+    if (typeof time != "integer" && typeof time != "float") throw("AnglesTransitionByTime: 'time' argument must be a number, but got " + typeof time);
+    if (typeof animSetting != "table")                      throw("AnglesTransitionByTime: 'animSetting' argument must be a table, but got " + typeof animSetting);
+
     local animSetting = AnimEvent("angles", animSetting, entities, time)
 
     local deltaAngleX = ((((endAngles.x - startAngles.x) % 360) + 540) % 360) - 180;
@@ -7086,13 +7930,13 @@ animate.RT["AnglesTransitionByTime"] <- function(entities, startAngles, endAngle
     animate.applyRTAnimation(
         animSetting, 
         function(step, steps, v){return v.startAngles + v.angleDelta * v.easeFunc(step / steps)},
-        function(ent, newAngle) {ent.SetAbsAngles(newAngle)},
+        function(ent, newAngle) {ent.SetAngles2(newAngle)},
         vars
     )
     
     return animSetting.delay
 }
-// IncludeScript("PCapture-LIB/SRC/Animations/forward")
+
 /*+--------------------------------------------------------------------------------+
 |                           PCapture Vscripts Library                              |
 +----------------------------------------------------------------------------------+
@@ -7118,7 +7962,7 @@ animate.RT["AnglesTransitionByTime"] <- function(entities, startAngles, endAngle
      * @returns {any|null} - The result of the event's action, or null if the event is not found or the filter fails. 
     */
     function Notify(eventName, ...) {
-        if(eventName in AllScriptEvents == false)
+        if((eventName in AllScriptEvents) == false)
             return dev.warning("Unknown VGameEvent {" + eventName + "}")
 
         local varg = array(vargc)
@@ -7133,10 +7977,10 @@ animate.RT["AnglesTransitionByTime"] <- function(entities, startAngles, endAngle
     /* 
      * Gets a VGameEvent object by name. 
      * 
-     * @param {string} EventName - The name of the event to retrieve. 
+     * @param {string} eventName - The name of the event to retrieve. 
      * @returns {VGameEvent|null} - The VGameEvent object, or null if the event is not found. 
     */
-    function GetEvent(EventName) {
+    function GetEvent(eventName) {
         return eventName in AllScriptEvents ? AllScriptEvents[eventName] : null
     }
 }
@@ -7239,7 +8083,10 @@ function VGameEvent::SetFilter(filterFunc) {
  * @param {array} args - Optional arguments to pass to the actions function. 
 */
 function VGameEvent::Trigger(args) {
-    if(this.actions.len() == 0) return
+    if(this.actions.len() == 0) {
+        dev.trace("Attempt to run {}, which has no actions", this.eventName)
+        return
+    }
 
     if (this.triggerCount != 0 && (this.filterFunction == null || this.filterFunction(args))) {
         if (this.triggerCount > 0) {
@@ -7259,10 +8106,15 @@ function VGameEvent::Trigger(args) {
 */
 function VGameEvent::ForceTrigger(args) {
     args.insert(0, this)
-    foreach(action in this.actions) {
-        action.acall(args)
+    foreach(action in this.actions.iter()) {
+        try {
+            action.acall(args)
+        } catch(err) {
+            throw("VGameEvent Error: " + this.eventName + " has accured: " + err )
+        }
     }
     dev.trace("VScript Event Fired - " + this.eventName)
+    return true // todo: what ._.
 }
 
 /*+--------------------------------------------------------------------------------+
@@ -7294,6 +8146,10 @@ HUD["ScreenText"] <- class {
      * @param {string} targetname - The targetname of the "game_text" entity. (optional) 
     */
     constructor(position, message, holdtime = 10, targetname = "") {
+        if (typeof position != "Vector")                                throw("HUD.ScreenText: 'position' must be a Vector, but got " + typeof position);
+        if (typeof message != "string")                                 throw("HUD.ScreenText: 'message' must be a string, but got " + typeof message);
+        if (typeof holdtime != "integer" && typeof holdtime != "float")  throw("HUD.ScreenText: 'holdtime' must be a number, but got " + typeof holdtime);
+    
         this.holdtime = holdtime
         this.CPcapEntity = entLib.CreateByClassname("game_text", {
             // Set initial properties for the text display entity
@@ -7474,6 +8330,10 @@ HUD["HintInstructor"] <- class {
      * @param {string} targetname - The targetname of the "env_instructor_hint" entity. (optional, default="") 
     */
     constructor(message, holdtime = 5, icon = "icon_tip", showOnHud = 1, targetname = "") {
+        if (typeof message != "string")                                 throw("HUD.HintInstructor: 'message' must be a string, but got " + typeof message);
+        if (typeof holdtime != "integer" && typeof holdtime != "float")  throw("HUD.HintInstructor: 'holdtime' must be a number, but got " + typeof holdtime);
+        if (typeof icon != "string")                                    throw("HUD.HintInstructor: 'icon' must be a string, but got " + typeof message);
+
         this.CPcapEntity = entLib.CreateByClassname("env_instructor_hint", {
             // The text of your hint. 100 character limit.
             hint_caption = message,
@@ -7495,7 +8355,7 @@ HUD["HintInstructor"] <- class {
     }
 
     // Displays the hint.  
-    function Enable() null
+    function Enable(delay) null
     // Hides the hint. 
     function Disable() null
     // Updates and redisplays the hint.  
@@ -7513,7 +8373,7 @@ HUD["HintInstructor"] <- class {
     // Sets the icon to display when the hint is on-screen.  
     function SetIconOnScreen(icon) null
     // Sets the icon to display when the hint is off-screen.  
-    function SetIconOffScreen(bind) null
+    function SetIconOffScreen(icon) null
     // Sets the hold time (duration) of the hint.  
     function SetHoldTime(time) null
     // Sets the distance at which the hint is visible.  
@@ -7526,8 +8386,8 @@ HUD["HintInstructor"] <- class {
 /*
  * Displays the hint. 
 */
-function HUD::HintInstructor::Enable() {
-    EntFireByHandle(this.CPcapEntity, "ShowHint")
+function HUD::HintInstructor::Enable(delay=0) {
+    EntFireByHandle(this.CPcapEntity, "ShowHint", "", delay)
 }
 
 // Implementation of 'disable' to hide the on-screen text
@@ -7643,6 +8503,25 @@ function HUD::HintInstructor::SetEffects(sizePulsing, alphaPulsing, shaking) {
 }
 
 
+// Garbage collector for `PCapEntity::EntitiesScopes` and `PcapEntityCache` 
+ScheduleEvent.AddInterval("global", function() {
+    foreach(ent, _ in EntitiesScopes) {
+        if(!ent || !ent.IsValid()) {
+            delete EntitiesScopes[ent]
+        }
+    }
+    foreach(ent, _ in pcapEntityCache) {
+        if(!ent || !ent.IsValid()) {
+            delete pcapEntityCache[ent]
+        }
+    }
+    foreach(ent, _ in TracePlusIgnoreEnts) {
+        if(!ent || !ent.IsValid()) {
+            delete TracePlusIgnoreEnts[ent]
+        }
+    }
+}, 5, 0)
+
 
 /*
  * Initializes eye tracking for all players, allowing retrieval of their coordinates and viewing directions.
@@ -7656,6 +8535,7 @@ function HUD::HintInstructor::SetEffects(sizePulsing, alphaPulsing, shaking) {
 */
 
 TrackPlayerJoins()
+ScheduleEvent.Add("global", TrackPlayerJoins, 0.4)
 if(IsMultiplayer()) {
     ScheduleEvent.Add("global", TrackPlayerJoins, 2) // Thanks Volve for making it take so long for players to initialize
     ScheduleEvent.AddInterval("global", HandlePlayerEventsMP, 0.3)
@@ -7665,7 +8545,7 @@ if(IsMultiplayer()) {
         ScheduleEvent.AddInterval("global", TrackPlayerJoins, 1, 2)
 } 
 else {
-    ScheduleEvent.AddInterval("global", HandlePlayerEventsSP, 0.5)
+    ScheduleEvent.AddInterval("global", HandlePlayerEventsSP, 0.5, 0.5)
 } 
 
 
@@ -7676,7 +8556,8 @@ globalDetector.ConnectOutputEx("OnStartTouchPortal", function() {entLib.FromEnti
 globalDetector.ConnectOutputEx("OnEndTouchPortal", function() {entLib.FromEntity(activator).SetTraceIgnore(true)})
 
 
-::_lib_version_ <- version
+::LIB_VERSION <- version
+::PCaptureLibInited <- true
 
 /*
  * Prints information about the PCapture library upon initialization.
@@ -7684,7 +8565,8 @@ globalDetector.ConnectOutputEx("OnEndTouchPortal", function() {entLib.FromEntity
  * This includes the library name, version, author, and a link to the GitHub repository.
 */
 printl("\n----------------------------------------")
-printl("Welcome to " + _lib_version_)
+printl("Welcome to " + LIB_VERSION)
 printl("Author: laVashik Production") // The God of VScripts :P
-printl("GitHub: https://github.com/IaVashik/PCapture-LIB")
+printl("GitHub: https://github.com/LaVashikk/PCapture-LIB")
 printl("----------------------------------------\n")
+
